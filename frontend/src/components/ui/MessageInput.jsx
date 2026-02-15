@@ -206,7 +206,7 @@ const MessageInput = ({ onSendMessage, disabled = false, isPaused = false, onTog
 
           <div
             className={`flex flex-col rounded-full transition-all duration-200 ${
-              isFocused ? 'ring-2 ring-[#D1D1D1]' : ''
+              isFocused ? 'ring-1 ring-white/20' : ''
             }`}
             style={{
               backgroundColor: '#2C2C2C',
