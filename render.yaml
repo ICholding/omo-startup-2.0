@@ -8,42 +8,38 @@ services:
     autoDeploy: true
     envVars:
       - key: VITE_API_URL
-        value: https://omo-startup-backend.onrender.com
+        fromService:
+          type: web
+          name: omo-backend
+          property: host
     routes:
       - type: rewrite
         source: /*
         destination: /index.html
 
   - type: web
-    name: omo-startup-backend
+    name: omo-backend
     env: node
     rootDir: backend
-    plan: starter
-    buildCommand: npm ci && npm --prefix ../frontend install && npm --prefix ../frontend run build
+    buildCommand: npm ci
     startCommand: node server.js
     autoDeploy: true
     envVars:
       - key: NODE_ENV
         value: production
-      - key: FRONTEND_BUILD_PATH
-        value: /opt/render/project/src/frontend/build
+      - key: AGENT_PROVIDER
+        value: moltbot
+      - key: MOLTBOT_URL
+        fromService:
+          type: web
+          name: moltbot-pentest
+          property: host
       - key: CORS_ALLOWED_ORIGINS
-        value: https://omo-startup.onrender.com,https://omo-startup-backend.onrender.com
-      - key: ACTIVE_AGENT_ID
-        value: chat-mode
-      - key: CLIENT_NAME
-        value: Default Client
-      - key: INDUSTRY
-        value: General
-      - key: FEATURE_FILE_UPLOAD
-        value: true
-      - key: FEATURE_PAPERCLIP_VISIBLE
-        value: true
-      - key: FEATURE_INTAKE_QUESTIONS
-        value: true
-      - key: ADMIN_ENABLED
-        value: true
-      - key: ADMIN_USERNAME
-        sync: false
-      - key: ADMIN_PASSWORD
-        sync: false
+        value: https://omo-frontend.onrender.com
+
+  - type: web
+    name: moltbot-pentest
+    env: docker
+    rootDir: docker/moltbot-pentest
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true

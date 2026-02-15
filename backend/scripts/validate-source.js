@@ -3,14 +3,13 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
-// Resolve paths relative to project root (where this script is: backend/scripts/)
 const projectRoot = path.resolve(__dirname, '..', '..');
-const backendRoot = path.resolve(__dirname, '..');
 
 const filesToCheck = [
-  'backend/socket-handler.js',
   'backend/server.js',
-  'backend/agent-core/agent-orchestrator.js'
+  'backend/lib/runtime.js',
+  'backend/lib/adapters/moltbot-adapter.js',
+  'backend/lib/adapters/custom-agent-adapter.js'
 ];
 
 const diffMarkerPattern = /^(diff --git |@@ |\+\+\+ |--- )/m;
@@ -20,7 +19,7 @@ let hasError = false;
 
 for (const relFile of filesToCheck) {
   const fullPath = path.join(projectRoot, relFile);
-  
+
   try {
     const source = fs.readFileSync(fullPath, 'utf8');
 
