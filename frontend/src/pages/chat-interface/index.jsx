@@ -219,19 +219,6 @@ const ChatInterface = () => {
     handleSendMessage(suggestionText);
   };
 
-  const clearConversation = () => {
-    setMessages([]);
-    try {
-      const storedMap = localStorage.getItem(CHAT_MESSAGES_BY_SESSION_KEY);
-      const parsed = storedMap ? JSON.parse(storedMap) : {};
-      if (sessionId) delete parsed[sessionId];
-      localStorage.setItem(CHAT_MESSAGES_BY_SESSION_KEY, JSON.stringify(parsed));
-    } catch {
-      // Ignore storage write issues
-    }
-    localStorage.removeItem(CHAT_MESSAGES_KEY);
-  };
-
   const handleActiveSessionChange = (sessionInfo) => {
     const nextTitle = typeof sessionInfo === 'string' ? sessionInfo : sessionInfo?.name;
     const nextSessionId = sessionInfo?.id || null;
@@ -409,15 +396,6 @@ const ChatInterface = () => {
 
             {!isSidebarActive && (
               <>
-                <div className="px-4 pb-2 flex items-center gap-3 justify-end">
-                  <button
-                    onClick={clearConversation}
-                    className="text-xs px-3 py-1 rounded-full border border-border text-muted-foreground hover:text-foreground"
-                    type="button"
-                  >
-                    Clear Chat
-                  </button>
-                </div>
                 <MessageInput
                   onSendMessage={handleSendMessage}
                   disabled={isStreaming}
