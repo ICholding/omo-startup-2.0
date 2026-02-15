@@ -44,3 +44,4 @@ services:
     rootDir: docker/moltbot-pentest
     dockerfilePath: ./Dockerfile
     autoDeploy: true
+    healthCheckPath: /health
