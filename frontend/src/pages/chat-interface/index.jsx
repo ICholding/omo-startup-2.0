@@ -299,7 +299,7 @@ const ChatInterface = () => {
   const chatSurfaceClassName = `relative flex flex-col h-screen bg-background transition-opacity duration-300 ${isSidebarActive ? 'pointer-events-none select-none opacity-75' : 'opacity-100'}`;
 
   const renderBlankState = () => (
-    <div className="absolute inset-0 flex items-center justify-center">
+    <div className="w-full h-full flex items-center justify-center">
       <h1 className="text-3xl font-semibold tracking-tight">Assistant</h1>
     </div>
   );

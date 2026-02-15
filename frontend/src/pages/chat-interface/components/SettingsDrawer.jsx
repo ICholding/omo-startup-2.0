@@ -22,7 +22,7 @@ const SettingsDrawer = ({ isOpen, onClose, archivedSessions = [], onRestoreSessi
 
       {/* Settings Drawer */}
       <div 
-        className={`fixed top-0 right-0 h-full w-[92vw] max-w-[720px] bg-[#1a1a1a]/95 backdrop-blur-xl shadow-2xl transform transition-transform duration-300 ease-in-out z-[70] flex flex-col rounded-l-3xl border-l border-white/10 ${
+        className={`fixed top-0 right-0 h-full w-[90vw] max-w-[340px] bg-[#1a1a1a]/95 backdrop-blur-xl shadow-2xl transform transition-transform duration-300 ease-in-out z-[70] flex flex-col rounded-l-3xl border-l border-white/10 ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
@@ -217,7 +217,14 @@ const CustomMemoryTab = () => {
 const TerminalBoardTab = () => {
   return (
     <div className="w-full">
-      <div className="w-full rounded-2xl bg-black border border-white/10 overflow-hidden min-h-[280px]" />
+      {/* Terminal Screen Only */}
+      <div className="w-full rounded-2xl bg-black border border-white/10 overflow-hidden min-h-[280px]">
+        {/* Moltbot agent terminal view */}
+        <div className="p-4 font-mono text-sm text-green-400">
+          <div>Terminal ready...</div>
+          <div>Remote mode: standby</div>
+        </div>
+      </div>
     </div>
   );
 };
