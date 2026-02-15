@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: omo-frontend
+    env: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: build
+    pullRequestPreviewsEnabled: true
+    autoDeploy: true
+    envVars:
+      - key: VITE_API_URL
+        value: https://omo-startup-backend.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

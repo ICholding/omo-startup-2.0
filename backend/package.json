@@ -1,0 +1,113 @@
+{
+  "name": "omo-ai",
+  "version": "0.1.0",
+  "private": true,
+  "rocketCritical": {
+    "dependencies": [
+      "@dhiwise/component-tagger",
+      "react",
+      "react-dom",
+      "@reduxjs/toolkit",
+      "redux",
+      "react-router-dom"
+    ],
+    "devDependencies": [
+      "@vitejs/plugin-react",
+      "vite",
+      "vite-tsconfig-paths",
+      "tailwindcss",
+      "autoprefixer",
+      "postcss"
+    ],
+    "scripts": [
+      "start",
+      "build",
+      "serve"
+    ],
+    "warning": "\ud83d\udea8 CRITICAL: DO NOT REMOVE OR MODIFY ABOVE DEPENDENCIES - Required for app functionality"
+  },
+  "dependencies": {
+    "@dhiwise/component-tagger": "^1.0.14",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@reduxjs/toolkit": "^2.6.1",
+    "@tailwindcss/forms": "^0.5.7",
+    "@testing-library/jest-dom": "^5.15.1",
+    "@testing-library/react": "^11.2.7",
+    "@testing-library/user-event": "^12.8.3",
+    "axios": "^1.8.4",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "concurrently": "^9.2.1",
+    "cors": "^2.8.6",
+    "d3": "^7.9.0",
+    "date-fns": "^4.1.0",
+    "dotenv": "^16.0.1",
+    "express": "^4.18.2",
+    "helmet": "^8.0.0",
+    "file-saver": "^2.0.5",
+    "framer-motion": "^10.16.4",
+    "js-yaml": "^4.1.1",
+    "lucide-react": "^0.484.0",
+    "openai": "^6.21.0",
+    "react": "^18.2.0",
+    "react-color": "^2.19.3",
+    "react-dom": "^18.2.0",
+    "react-dropzone": "^14.4.0",
+    "react-helmet": "^6.1.0",
+    "react-hook-form": "^7.55.0",
+    "react-router-dom": "6.30.3",
+    "react-router-hash-link": "^2.4.3",
+    "react-textarea-autosize": "^8.5.9",
+    "react18-json-view": "^0.2.9",
+    "recharts": "^2.15.2",
+    "redux": "^5.0.1",
+    "socket.io": "^4.8.3",
+    "tailwind-merge": "^3.3.1",
+    "tailwindcss-animate": "^1.0.7",
+    "tailwindcss-elevation": "^2.0.0",
+    "tailwindcss-fluid-type": "^2.0.7",
+    "uuid": "^9.0.0"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "build": "npm --prefix ../frontend install && npm --prefix ../frontend run build",
+    "build:backend": "vite build --sourcemap",
+    "serve": "vite preview",
+    "start:prod": "node server.js",
+    "dev:fullstack": "concurrently \"npm start\" \"node server.js\"",
+    "validate:source": "node scripts/validate-source.js"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@tailwindcss/aspect-ratio": "^0.4.2",
+    "@tailwindcss/container-queries": "^0.1.1",
+    "@tailwindcss/line-clamp": "^0.1.0",
+    "@tailwindcss/typography": "^0.5.16",
+    "@vitejs/plugin-react": "4.3.4",
+    "autoprefixer": "10.4.2",
+    "cross-env": "^10.1.0",
+    "dotenv-cli": "^11.0.0",
+    "postcss": "8.5.6",
+    "tailwindcss": "3.4.6",
+    "vite": "5.0.0",
+    "vite-plugin-env-compatible": "^2.0.1",
+    "vite-tsconfig-paths": "3.6.0"
+  }
+}

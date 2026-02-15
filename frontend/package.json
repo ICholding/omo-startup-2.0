@@ -1,0 +1,42 @@
+{
+  "name": "frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "vite",
+    "dev": "vite",
+    "build": "vite build --outDir build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@radix-ui/react-slot": "1.2.3",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "date-fns": "^4.1.0",
+    "file-saver": "2.0.5",
+    "framer-motion": "10.16.4",
+    "lucide-react": "0.484.0",
+    "react": "18.3.1",
+    "react-color": "2.19.3",
+    "react-dom": "18.3.1",
+    "react-helmet": "6.1.0",
+    "react-markdown": "^10.1.0",
+    "react-router-dom": "6.30.3",
+    "react-syntax-highlighter": "^16.1.0",
+    "react18-json-view": "0.2.9",
+    "recharts": "2.15.2",
+    "remark-gfm": "^4.0.1",
+    "socket.io-client": "^4.8.3",
+    "tailwind-merge": "3.3.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/typography": "0.5.16",
+    "@vitejs/plugin-react": "4.3.4",
+    "autoprefixer": "10.4.2",
+    "postcss": "8.5.6",
+    "tailwindcss": "3.4.6",
+    "tailwindcss-animate": "1.0.7",
+    "vite": "5.4.12",
+    "vite-tsconfig-paths": "3.6.0"
+  }
+}
