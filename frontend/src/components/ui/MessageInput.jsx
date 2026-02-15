@@ -151,7 +151,7 @@ const MessageInput = ({ onSendMessage, disabled = false, isPaused = false, onTog
   const iconColor = isButtonActive ? '#000000' : '#FFFFFF';
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur border-t border-border shadow-elevation-lg z-[60]">
+    <div className="fixed bottom-0 left-0 right-0 bg-transparent z-[60]">
       <div className="mx-auto max-w-5xl px-2 sm:px-4 py-1.5 sm:py-2">
         <form onSubmit={handleSubmit} className="relative">
           {showAttachmentMenu && (

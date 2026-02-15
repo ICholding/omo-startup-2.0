@@ -4,7 +4,7 @@ import ThemeToggle from './ThemeToggle';
 
 const ChatHeader = ({ onMenuClick, sessionTitle }) => {
   return (
-    <header className="fixed top-0 left-0 right-0 z-20 h-12 bg-card/95 backdrop-blur border-b border-border shadow-elevation-sm">
+    <header className="fixed top-0 left-0 right-0 z-20 h-12 bg-transparent">
       <div className="mx-auto relative flex h-full max-w-5xl items-center justify-between px-3 sm:px-4">
         <div className="flex items-center gap-2 min-w-0">
           <button
