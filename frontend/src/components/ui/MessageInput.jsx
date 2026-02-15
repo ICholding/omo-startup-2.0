@@ -205,12 +205,12 @@ const MessageInput = ({ onSendMessage, disabled = false, isPaused = false, onTog
           />
 
           <div
-            className={`flex flex-col rounded-2xl transition-all duration-200 ${
+            className={`flex flex-col rounded-full transition-all duration-200 ${
               isFocused ? 'ring-2 ring-[#D1D1D1]' : ''
             }`}
             style={{
               backgroundColor: '#2C2C2C',
-              minHeight: '42px',
+              minHeight: '52px',
             }}
           >
             {attachedFiles?.length > 0 && (
@@ -222,16 +222,16 @@ const MessageInput = ({ onSendMessage, disabled = false, isPaused = false, onTog
               </>
             )}
 
-            <div className="flex items-end gap-1.5 sm:gap-2 px-2 py-1 min-h-[42px] sm:min-h-[46px]">
+            <div className="flex items-center gap-1.5 sm:gap-2 px-3 py-2 min-h-[52px]">
               <button
                 type="button"
                 onClick={() => setShowAttachmentMenu((prev) => !prev)}
                 disabled={disabled}
-                className="flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-full transition-all duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-80"
-                style={{ backgroundColor: '#3A3A3A', padding: '6px' }}
+                className="flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-full transition-all duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-80"
+                style={{ backgroundColor: 'transparent', padding: '6px' }}
                 aria-label="Add attachments or options"
               >
-                <Plus className="w-4 h-4 sm:w-[18px] sm:h-[18px] text-white" strokeWidth={2.25} />
+                <Paperclip className="w-5 h-5 sm:w-5 sm:h-5 text-white/70" strokeWidth={2} />
               </button>
 
               <textarea
@@ -257,14 +257,14 @@ const MessageInput = ({ onSendMessage, disabled = false, isPaused = false, onTog
                 type="button"
                 onClick={handleRightButtonClick}
                 disabled={disabled || (!isAgentWorking && !message?.trim())}
-                className="flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-full transition-all duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-80"
+                className="flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-full transition-all duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
                 style={{ backgroundColor: buttonBgColor, padding: '6px' }}
                 aria-label={isAgentWorking ? (isPaused ? 'Resume agent' : 'Pause agent') : 'Send message'}
               >
                 {isAgentWorking ? (
-                  <Pause className="w-4 h-4 sm:w-[18px] sm:h-[18px]" strokeWidth={2.25} fill={iconColor} style={{ color: iconColor }} />
+                  <Pause className="w-5 h-5 sm:w-5 sm:h-5" strokeWidth={2.25} fill={iconColor} style={{ color: iconColor }} />
                 ) : (
-                  <ArrowUp className="w-4 h-4 sm:w-[18px] sm:h-[18px]" strokeWidth={2.25} style={{ color: iconColor }} />
+                  <ArrowUp className="w-5 h-5 sm:w-5 sm:h-5" strokeWidth={2.25} style={{ color: iconColor }} />
                 )}
               </button>
             </div>
