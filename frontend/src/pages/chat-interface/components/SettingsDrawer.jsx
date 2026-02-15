@@ -216,7 +216,12 @@ const CustomMemoryTab = () => {
 // Terminal Board Tab Component
 const TerminalBoardTab = () => {
   return (
-    <div className="w-full">
+    <div className="w-full space-y-4">
+      {/* Cloud Terminal Label */}
+      <div className="text-white/80 text-sm">
+        <p>Cloud terminal</p>
+      </div>
+      
       {/* Terminal Screen Only */}
       <div className="w-full rounded-2xl bg-black border border-white/10 overflow-hidden min-h-[280px]">
         {/* Moltbot agent terminal view */}
