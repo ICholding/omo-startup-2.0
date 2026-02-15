@@ -20,6 +20,11 @@ const inferRenderBackendUrl = () => {
     return '';
   }
 
+  const configuredRenderBackendUrl = trimTrailingSlash(import.meta.env?.VITE_RENDER_BACKEND_URL || '');
+  if (configuredRenderBackendUrl) {
+    return configuredRenderBackendUrl;
+  }
+
   const { protocol, hostname } = window.location;
 
   if (!hostname.endsWith('.onrender.com') || hostname.includes('-backend.')) {
@@ -27,16 +32,11 @@ const inferRenderBackendUrl = () => {
   }
 
   const service = hostname.replace('.onrender.com', '');
+  const derivedBackendService = service.endsWith('-frontend')
+    ? service.replace(/-frontend$/, '-backend')
+    : `${service}-backend`;
 
-  if (service === 'omo-frontend') {
-    return `${protocol}//omo-backend.onrender.com`;
-  }
-
-  if (service.endsWith('-frontend')) {
-    return `${protocol}//${service.replace(/-frontend$/, '-backend')}.onrender.com`;
-  }
-
-  return `${protocol}//${service}-backend.onrender.com`;
+  return `${protocol}//${derivedBackendService}.onrender.com`;
 };
 
 export const getApiBaseUrl = () => {
