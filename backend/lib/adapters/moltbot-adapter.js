@@ -7,7 +7,18 @@ class MoltbotAdapter {
     this.timeoutMs = Number(process.env.MOLTBOT_TIMEOUT_MS || 10000);
     this.chatPaths = this.buildPathCandidates(
       options.chatPath || process.env.MOLTBOT_CHAT_PATH,
-      ['/api/chat/message', '/chat/message', '/api/message', '/message']
+      [
+        '/api/chat/message',
+        '/chat/message',
+        '/api/chat',
+        '/chat',
+        '/api/v1/chat/message',
+        '/v1/chat/message',
+        '/api/v1/chat',
+        '/v1/chat',
+        '/api/message',
+        '/message'
+      ]
     );
     this.healthPaths = this.buildPathCandidates(
       options.healthPath || process.env.MOLTBOT_HEALTH_PATH,
@@ -84,7 +95,11 @@ class MoltbotAdapter {
 
   async executeBlocking({ message, sessionId, context = [] }) {
     let lastStatusCode = null;
+    let lastErrorBody = '';
+    let lastTriedPath = null;
+
     for (const chatPath of this.chatPaths) {
+      lastTriedPath = chatPath;
       const response = await this.fetchWithTimeout(`${this.baseUrl}${chatPath}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -96,13 +111,14 @@ class MoltbotAdapter {
       }
 
       lastStatusCode = response.status;
+      lastErrorBody = await response.text();
 
       if (response.status !== 404) {
-        throw new Error(`Moltbot request failed with status ${response.status}`);
+        throw new Error(`Moltbot request failed with status ${response.status} on path ${chatPath}${lastErrorBody ? `: ${lastErrorBody}` : ''}`);
       }
     }
 
-    throw new Error(`Moltbot request failed with status ${lastStatusCode || 404}`);
+    throw new Error(`Moltbot request failed with status ${lastStatusCode || 404} after trying paths: ${this.chatPaths.join(', ')}${lastTriedPath ? ` (last tried ${lastTriedPath})` : ''}${lastErrorBody ? `: ${lastErrorBody}` : ''}`);
   }
 
   async executeStream({ message, sessionId, context = [], onEvent }) {

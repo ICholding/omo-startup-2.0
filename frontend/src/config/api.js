@@ -21,16 +21,21 @@ const inferRenderBackendUrl = () => {
   }
 
   const { protocol, hostname } = window.location;
+  const explicitRenderBackendHost = trimTrailingSlash(import.meta.env?.VITE_RENDER_BACKEND_HOST || '');
+
+  if (explicitRenderBackendHost) {
+    if (/^https?:\/\//.test(explicitRenderBackendHost)) {
+      return explicitRenderBackendHost;
+    }
+
+    return `${protocol}//${explicitRenderBackendHost}`;
+  }
 
   if (!hostname.endsWith('.onrender.com') || hostname.includes('-backend.')) {
     return '';
   }
 
   const service = hostname.replace('.onrender.com', '');
-
-  if (service === 'omo-frontend') {
-    return `${protocol}//omo-backend.onrender.com`;
-  }
 
   if (service.endsWith('-frontend')) {
     return `${protocol}//${service.replace(/-frontend$/, '-backend')}.onrender.com`;

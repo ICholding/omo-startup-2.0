@@ -69,6 +69,11 @@ app.post('/api/chat/message', async (req, res) => {
     const result = await runtime.execute({ message, sessionId, context });
     return res.json(result);
   } catch (error) {
+    console.error('[chat/message] Moltbot execution failed', {
+      provider: process.env.AGENT_PROVIDER || 'moltbot',
+      moltbotUrl: process.env.MOLTBOT_URL || null,
+      message: error.message
+    });
     return res.status(502).json({ error: error.message });
   }
 });
@@ -107,6 +112,12 @@ app.get('/api/chat/stream', async (req, res) => {
     });
     writeEvent('done', { ok: true });
   } catch (error) {
+    console.error('[chat/stream] Moltbot execution failed', {
+      provider: process.env.AGENT_PROVIDER || 'moltbot',
+      moltbotUrl: process.env.MOLTBOT_URL || null,
+      sessionId,
+      message: error.message
+    });
     writeEvent('execution-error', { error: error.message });
   }
 
