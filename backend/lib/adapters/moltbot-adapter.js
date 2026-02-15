@@ -58,64 +58,24 @@ class MoltbotAdapter {
   }
 
   async executeStream({ message, sessionId, context = [], onEvent }) {
-    const streamUrl = new URL(`${this.baseUrl}/api/chat/stream`);
-    streamUrl.searchParams.set('message', message);
-    streamUrl.searchParams.set('sessionId', sessionId);
-    streamUrl.searchParams.set('context', JSON.stringify(context));
-
-    const response = await this.fetchWithTimeout(streamUrl, {
-      headers: { Accept: 'text/event-stream' }
+    // Moltbot doesn't support streaming - use blocking endpoint and simulate streaming
+    const response = await this.fetchWithTimeout(`${this.baseUrl}/api/chat/message`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, sessionId, context })
     });
 
-    if (!response.ok || !response.body) {
-      throw new Error(`Moltbot streaming request failed with status ${response.status}`);
+    if (!response.ok) {
+      throw new Error(`Moltbot request failed with status ${response.status}`);
     }
 
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let finalPackage = null;
+    const data = await response.json();
+    
+    // Emit response event to simulate streaming behavior
+    onEvent?.('response', { message: data.response || data.message || data });
+    onEvent?.('execution-complete', data);
 
-    const emitEventBlock = (rawBlock) => {
-      const lines = rawBlock.split('\n').map((line) => line.trim());
-      const event = lines.find((line) => line.startsWith('event:'))?.slice(6).trim() || 'message';
-      const dataLine = lines.find((line) => line.startsWith('data:'));
-      let parsedData = {};
-
-      if (dataLine) {
-        try {
-          parsedData = JSON.parse(dataLine.slice(5).trim());
-        } catch {
-          parsedData = { message: dataLine.slice(5).trim() };
-        }
-      }
-
-      onEvent?.(event, parsedData);
-
-      if (event === 'execution-complete') {
-        finalPackage = normalizeExecutionPackage(parsedData);
-      }
-      if (event === 'execution-error') {
-        throw new Error(parsedData.error || 'Moltbot streaming execution failed');
-      }
-    };
-
-    for await (const chunk of response.body) {
-      buffer += decoder.decode(chunk, { stream: true });
-      const blocks = buffer.split('\n\n');
-      buffer = blocks.pop() || '';
-
-      for (const block of blocks) {
-        if (block.trim()) {
-          emitEventBlock(block);
-        }
-      }
-    }
-
-    if (!finalPackage) {
-      throw new Error('Moltbot stream ended without execution-complete event');
-    }
-
-    return finalPackage;
+    return normalizeExecutionPackage(data);
   }
 }
 
