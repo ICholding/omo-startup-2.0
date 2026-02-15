@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import ProjectsView from './ProjectsView';
 
-const SIDEBAR_STATE_KEY = 'hackerai-sidebar-state';
+const SIDEBAR_STATE_KEY = 'omo-sidebar-state';
 const MAX_ACTIVE_SESSIONS = 40;
 
 const getNextSessionName = (sessions = []) => `Session ${sessions.length + 1}`;
@@ -83,10 +83,10 @@ const OmoAiSidebar = ({ isOpen, onClose, onActiveSessionChange, onNewSession, cu
   const [addingToProject, setAddingToProject] = useState(null);
 
   const handleLogout = () => {
-    localStorage.removeItem('hackerai-session-id');
-    localStorage.removeItem('hackerai-chat-messages');
-    localStorage.removeItem('hackerai-chat-messages-by-session');
-    localStorage.removeItem('hackerai-project-sessions');
+    localStorage.removeItem('omo-session-id');
+    localStorage.removeItem('omo-chat-messages');
+    localStorage.removeItem('omo-chat-messages-by-session');
+    localStorage.removeItem('omo-project-sessions');
     localStorage.removeItem(SIDEBAR_STATE_KEY);
     window.location.assign('/');
   };

@@ -33,7 +33,7 @@ export const Reasoning = memo(({
   );
 });
 
-export const ReasoningTrigger = memo(({ title = "HackerAI Reasoning" }) => {
+export const ReasoningTrigger = memo(({ title = "OMO Reasoning" }) => {
   const { isOpen, setIsOpen, isStreaming } = useReasoningContext();
 
   return (

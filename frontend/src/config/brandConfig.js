@@ -1,5 +1,5 @@
 /**
- * HackerAI Brand Configuration
+ * OMO Brand Configuration
  * 
  * Cognitive Architect & Time-Leverage Strategist
  * Reprogram cognition, engineer asymmetric outcomes, collapse time through systems
@@ -10,18 +10,18 @@ import { getApiUrl } from './api';
 let cachedConfig = null;
 
 /**
- * Default HackerAI Brand Configuration
+ * Default OMO Brand Configuration
  * Optimized for security assessment and penetration testing
  */
 export const getDefaultBrandConfig = () => {
   return {
     // Agent Identity
-    activeAgentId: 'hackerai-cognitive-architect',
+    activeAgentId: 'omo-cognitive-architect',
     activeMode: 'recon',
-    clientName: 'HackerAI Security Assessment',
+    clientName: 'OMO Security Assessment',
     industry: 'Cybersecurity',
     
-    // Feature Flags - HackerAI optimized
+    // Feature Flags - OMO optimized
     features: {
       fileUpload: true,          // For log analysis, evidence upload
       paperclipVisible: true,
@@ -32,7 +32,7 @@ export const getDefaultBrandConfig = () => {
       toolIntegration: true      // Direct tool execution
     },
     
-    // Branding - HackerAI Dark Theme
+    // Branding - OMO Dark Theme
     branding: {
       primaryColor: '#00FF41',      // Terminal green
       secondaryColor: '#0D1117',    // GitHub dark
@@ -43,7 +43,7 @@ export const getDefaultBrandConfig = () => {
       
       // Logo and assets
       logoUrl: null,
-      companyName: 'HackerAI',
+      companyName: 'OMO',
       tagline: 'Test. Hack. Learn. Secure.',
       
       // Typography
@@ -88,7 +88,7 @@ export const fetchBrandConfig = async () => {
     cachedConfig = config;
     return config;
   } catch (error) {
-    // Use HackerAI defaults when API unavailable
+    // Use OMO defaults when API unavailable
     return getDefaultBrandConfig();
   }
 };

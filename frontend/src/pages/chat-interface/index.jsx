@@ -9,10 +9,10 @@ import ThinkingIndicator from './components/ThinkingIndicator';
 import { useSocket } from '../../hooks/useSocket';
 import { usePageTransition, fadeVariants } from '../../config/animations';
 
-const SESSION_ID_KEY = 'hackerai-session-id';
-const CHAT_MESSAGES_KEY = 'hackerai-chat-messages';
-const CHAT_MESSAGES_BY_SESSION_KEY = 'hackerai-chat-messages-by-session';
-const CHAT_STATE_BY_SESSION_KEY = 'hackerai-chat-state-by-session';
+const SESSION_ID_KEY = 'omo-session-id';
+const CHAT_MESSAGES_KEY = 'omo-chat-messages';
+const CHAT_MESSAGES_BY_SESSION_KEY = 'omo-chat-messages-by-session';
+const CHAT_STATE_BY_SESSION_KEY = 'omo-chat-state-by-session';
 
 /**
  * Automation Assistant Chat Interface

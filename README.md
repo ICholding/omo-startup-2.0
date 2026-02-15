@@ -1,8 +1,8 @@
-# HackerAI Cognitive Architect
+# OMO Cognitive Architect
 
 **OMO-AI reprogrammed for asymmetric security outcomes.**
 
-This is the HackerAI Agent Framework implementation - a cognitive architecture designed for penetration testing, vulnerability assessment, and security automation. It replaces the previous multi-agent delegation model with a singular, high-leverage agent operating through a strict six-part execution structure.
+This is the OMO Agent Framework implementation - a cognitive architecture designed for penetration testing, vulnerability assessment, and security automation. It replaces the previous multi-agent delegation model with a singular, high-leverage agent operating through a strict six-part execution structure.
 
 ## AI Control Doctrine
 
@@ -42,7 +42,7 @@ All operations follow this strict cycle:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│              HackerAI Cognitive Architect                    │
+│              OMO Cognitive Architect                    │
 ├─────────────────────────────────────────────────────────────┤
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
 │  │  THINK   │→│  PLAN    │→│ EXECUTE  │→│  LEARN   │  │
@@ -62,7 +62,7 @@ All operations follow this strict cycle:
 
 ```
 .
-├── backend/                 # Express.js API + HackerAI Agent Core
+├── backend/                 # Express.js API + OMO Agent Core
 │   ├── server.js           # API endpoints for agent execution
 │   ├── agent-core/         # Cognitive architect implementation
 │   │   ├── agent-orchestrator.js
@@ -71,7 +71,7 @@ All operations follow this strict cycle:
 │
 ├── frontend/               # React + Vite application
 │   ├── src/
-│   │   ├── config/backend/agentConfig.js  # HackerAI config
+│   │   ├── config/backend/agentConfig.js  # OMO config
 │   │   ├── hooks/useAgentLoader.js        # Agent loader hook
 │   │   └── ...
 │   └── package.json
@@ -88,9 +88,9 @@ npm install
 npm start
 ```
 
-The backend exposes HackerAI API endpoints at:
-- `POST /api/hackerai/execute` - Execute security task
-- `GET /api/hackerai/status` - Agent status
+The backend exposes OMO API endpoints at:
+- `POST /api/chat/message` - Execute security task
+- `GET /api/agent/status` - Agent status
 - `GET /api/config/brand` - Brand configuration
 
 ### Frontend
@@ -107,8 +107,8 @@ npm run dev
 Create `.env` in backend directory:
 
 ```env
-# HackerAI Configuration
-AGENT_ID=hackerai-cognitive-architect
+# OMO Configuration
+AGENT_ID=omo-cognitive-architect
 AGENT_MODE=recon
 LOG_LEVEL=info
 LLM_MODEL=claude-4-opus
@@ -139,7 +139,7 @@ When `OPENROUTER_API_KEY` is set, chat responses are generated through OpenRoute
 ### Execute Security Task
 
 ```bash
-curl -X POST http://localhost:3001/api/hackerai/execute \
+curl -X POST http://localhost:3001/api/chat/message \
   -H "Content-Type: application/json" \
   -d '{
     "task": {
@@ -216,10 +216,10 @@ MIT License
 
 ## Links
 
-- Documentation: https://docs.hackerai.co
-- Framework: https://github.com/hackerai/agent-framework
+- Documentation: https://docs.omo.co
+- Framework: https://github.com/omo/agent-framework
 - Issues: https://github.com/ICholding/omo-startup/issues
 
 ---
 
-**HackerAI** - *Cognitive Architect for Asymmetric Security Outcomes*
+**OMO** - *Cognitive Architect for Asymmetric Security Outcomes*

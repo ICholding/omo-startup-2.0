@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { getConfiguredAgent, AGENT_MODES } from '../config/backend/agentConfig';
 
 /**
- * HackerAI Agent Loader Hook
+ * OMO Agent Loader Hook
  * Loads the Cognitive Architect with strict six-part execution structure
  * 
  * NON-NEGOTIABLE: No multi-agent delegation. Direct execution only.
@@ -18,7 +18,7 @@ export const useAgentLoader = () => {
       try {
         setIsLoadingAgent(true);
         
-        // Load HackerAI Cognitive Architect configuration
+        // Load OMO Cognitive Architect configuration
         const agentConfig = await getConfiguredAgent();
         
         // Initialize agent state with doctrine constraints
@@ -50,18 +50,18 @@ export const useAgentLoader = () => {
         setCurrentMode(agentConfig.activeMode);
         setError(null);
         
-        console.log('[HackerAI] Cognitive Architect initialized');
-        console.log(`[HackerAI] Mode: ${agentConfig.activeMode}`);
-        console.log(`[HackerAI] Model: ${agentConfig.cognition.model}`);
+        console.log('[OMO] Cognitive Architect initialized');
+        console.log(`[OMO] Mode: ${agentConfig.activeMode}`);
+        console.log(`[OMO] Model: ${agentConfig.cognition.model}`);
         
       } catch (err) {
-        console.error('[HackerAI] Agent initialization failed:', err);
+        console.error('[OMO] Agent initialization failed:', err);
         setError(err.message);
         
         // Fallback to minimal cognitive architect
         setCurrentAgent({
-          agentId: 'hackerai-fallback',
-          agentName: 'HackerAI Cognitive Architect (Fallback)',
+          agentId: 'omo-fallback',
+          agentName: 'OMO Cognitive Architect (Fallback)',
           activeMode: 'recon',
           modes: AGENT_MODES,
           error: err.message
@@ -80,7 +80,7 @@ export const useAgentLoader = () => {
    */
   const switchMode = async (modeId) => {
     if (!AGENT_MODES[modeId.toUpperCase()]) {
-      console.error(`[HackerAI] Invalid mode: ${modeId}`);
+      console.error(`[OMO] Invalid mode: ${modeId}`);
       return false;
     }
     
@@ -91,7 +91,7 @@ export const useAgentLoader = () => {
       currentMode: modeId
     }));
     
-    console.log(`[HackerAI] Mode switched to: ${modeId}`);
+    console.log(`[OMO] Mode switched to: ${modeId}`);
     return true;
   };
 
@@ -110,15 +110,14 @@ export const useAgentLoader = () => {
     }));
 
     try {
-      // API call to backend HackerAI orchestrator
-      const response = await fetch('/api/hackerai/execute', {
+      // API call to backend OMO orchestrator
+      const response = await fetch('/api/chat/message', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          task,
-          mode: currentMode,
-          agentId: currentAgent.agentId,
-          cognition: currentAgent.cognition
+          message: task?.description || JSON.stringify(task),
+          sessionId: currentAgent.agentId,
+          context: []
         })
       });
 

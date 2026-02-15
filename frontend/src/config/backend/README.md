@@ -20,7 +20,7 @@ Main configuration file that exports:
 
 The frontend is designed for one assistant identity:
 
-- `hackerai-cognitive-architect`
+- `omo-cognitive-architect`
 
 ## Environment Variables
 

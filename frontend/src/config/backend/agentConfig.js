@@ -1,5 +1,5 @@
 /**
- * HackerAI Cognitive Architect Configuration
+ * OMO Cognitive Architect Configuration
  * 
  * NON-NEGOTIABLE AI CONTROL DOCTRINE
  * Purpose: Reprogram cognition, engineer asymmetric outcomes, collapse time through systems
@@ -17,7 +17,7 @@
 import { getBrandConfig } from '../brandConfig';
 
 /**
- * HackerAI Agent Modes
+ * OMO Agent Modes
  * Test - Hack - Learn - Secure
  */
 export const AGENT_MODES = {
@@ -60,13 +60,13 @@ export const AGENT_MODES = {
 };
 
 /**
- * Core Configuration - Single HackerAI Agent
+ * Core Configuration - Single OMO Agent
  * No multi-agent delegation. No dilution. Direct execution.
  */
 const HACKERAI_CONFIG = {
   activeMode: 'recon', // Default operational mode
-  agentId: 'hackerai-cognitive-architect',
-  agentName: 'HackerAI Cognitive Architect',
+  agentId: 'omo-cognitive-architect',
+  agentName: 'OMO Cognitive Architect',
   version: '1.0.0',
   
   // Cognitive Architecture
@@ -106,9 +106,9 @@ const HACKERAI_CONFIG = {
 };
 
 /**
- * Get HackerAI Agent Configuration
+ * Get OMO Agent Configuration
  * Loads from backend API, falls back to cognitive doctrine defaults
- * @returns {Promise<Object>} HackerAI agent configuration
+ * @returns {Promise<Object>} OMO agent configuration
  */
 export const getConfiguredAgent = async () => {
   try {
@@ -116,18 +116,18 @@ export const getConfiguredAgent = async () => {
     return {
       ...HACKERAI_CONFIG,
       activeMode: brandConfig?.activeMode || HACKERAI_CONFIG.activeMode,
-      clientName: brandConfig?.clientName || 'HackerAI Security Assessment',
+      clientName: brandConfig?.clientName || 'OMO Security Assessment',
       industry: brandConfig?.industry || 'Cybersecurity'
     };
   } catch (error) {
-    console.warn('Backend unavailable, using HackerAI cognitive defaults:', error);
+    console.warn('Backend unavailable, using OMO cognitive defaults:', error);
     return HACKERAI_CONFIG;
   }
 };
 
 /**
  * Get configuration synchronously
- * @returns {Object} HackerAI configuration
+ * @returns {Object} OMO configuration
  */
 export const getConfiguredAgentSync = () => HACKERAI_CONFIG;
 

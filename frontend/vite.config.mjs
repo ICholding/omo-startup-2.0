@@ -23,12 +23,6 @@ export default defineConfig({
         target: proxyTarget,
         changeOrigin: true,
         secure: false
-      },
-      '/socket.io': {
-        target: proxyTarget,
-        ws: true,
-        changeOrigin: true,
-        secure: false
       }
     }
   }

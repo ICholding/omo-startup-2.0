@@ -208,11 +208,9 @@ See `src/config/backend/README.md` for detailed configuration instructions.
 
 Create custom splash pages and themes:
 
-1. Create new folder in `src/custom-skins/your-skin-name/`
 2. Add `SplashPage.jsx` and `config.js`
 3. Set `VITE_CUSTOM_SKIN=your-skin-name` in `.env`
 
-See `src/custom-skins/CUSTOM_SKIN_GUIDE.md` for detailed instructions.
 
 ## Deployment
 
