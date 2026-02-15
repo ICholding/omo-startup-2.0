@@ -1,27 +1,27 @@
 const fetch = require('node-fetch');
 const { normalizeExecutionPackage } = require('../agent-contract');
 
+/**
+ * Moltbot Adapter - Now with OpenRouter Integration
+ * Falls back to local Moltbot container if OpenRouter is not configured
+ */
 class MoltbotAdapter {
   constructor(options = {}) {
     this.baseUrl = (options.baseUrl || process.env.MOLTBOT_URL || 'http://localhost:8080').replace(/\/$/, '');
     this.timeoutMs = Number(process.env.MOLTBOT_TIMEOUT_MS || 10000);
     this.chatPaths = this.buildPathCandidates(
       options.chatPath || process.env.MOLTBOT_CHAT_PATH,
-      [
-        '/api/chat/message',
-        '/api/chat',
-        '/chat/message',
-        '/chat',
-        '/api/message',
-        '/message',
-        '/api/v1/chat/message',
-        '/v1/chat/message'
-      ]
+      ['/api/chat/message', '/chat/message', '/api/message', '/message']
     );
     this.healthPaths = this.buildPathCandidates(
       options.healthPath || process.env.MOLTBOT_HEALTH_PATH,
       ['/health', '/api/health']
     );
+    
+    // OpenRouter configuration
+    this.openrouterKey = process.env.OPENROUTER_API_KEY;
+    this.openrouterModel = process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini';
+    this.openrouterUrl = 'https://openrouter.ai/api/v1/chat/completions';
   }
 
   buildPathCandidates(primaryPath, fallbackPaths = []) {
@@ -61,6 +61,11 @@ class MoltbotAdapter {
   }
 
   async health() {
+    // If OpenRouter is configured, consider it healthy
+    if (this.openrouterKey) {
+      return true;
+    }
+
     const maxAttempts = 3;
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       try {
@@ -83,6 +88,12 @@ class MoltbotAdapter {
   }
 
   async execute({ message, sessionId, context = [], onEvent }) {
+    // Prefer OpenRouter if configured for conversational AI
+    if (this.openrouterKey) {
+      return this.executeWithOpenRouter({ message, sessionId, context, onEvent });
+    }
+    
+    // Fall back to local Moltbot container
     if (onEvent) {
       return this.executeStream({ message, sessionId, context, onEvent });
     }
@@ -91,10 +102,72 @@ class MoltbotAdapter {
     return normalizeExecutionPackage(payload);
   }
 
+  async executeWithOpenRouter({ message, sessionId, context = [], onEvent }) {
+    const messages = [
+      {
+        role: 'system',
+        content: 'You are a helpful AI assistant. Provide conversational, natural responses.'
+      },
+      ...context,
+      { role: 'user', content: message }
+    ];
+
+    try {
+      // Emit thinking event
+      onEvent?.('execution-start', { state: 'thinking', message: 'Thinking...' });
+
+      const response = await this.fetchWithTimeout(this.openrouterUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.openrouterKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': process.env.OPENROUTER_REFERER || 'https://omo-startup.onrender.com',
+          'X-Title': 'OMO Startup Assistant'
+        },
+        body: JSON.stringify({
+          model: this.openrouterModel,
+          messages: messages,
+          temperature: 0.7,
+          max_tokens: 2000
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`OpenRouter API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+        throw new Error('Invalid response from OpenRouter API');
+      }
+
+      const aiResponse = data.choices[0].message.content;
+
+      // Emit response events
+      onEvent?.('response', { message: aiResponse });
+      
+      const executionPackage = {
+        status: 'completed',
+        summary: aiResponse,
+        sections: {
+          Response: aiResponse
+        },
+        nextActions: ['Continue conversation']
+      };
+      
+      onEvent?.('execution-complete', executionPackage);
+
+      return normalizeExecutionPackage(executionPackage);
+    } catch (error) {
+      console.error('[MoltbotAdapter] OpenRouter error:', error.message);
+      throw error;
+    }
+  }
+
   async executeBlocking({ message, sessionId, context = [] }) {
     let lastStatusCode = null;
-    let lastResponseBody = '';
-
     for (const chatPath of this.chatPaths) {
       const response = await this.fetchWithTimeout(`${this.baseUrl}${chatPath}`, {
         method: 'POST',
@@ -107,19 +180,13 @@ class MoltbotAdapter {
       }
 
       lastStatusCode = response.status;
-      lastResponseBody = await response.text();
 
       if (response.status !== 404) {
-        throw new Error(`Moltbot request failed on ${chatPath} with status ${response.status}${lastResponseBody ? `: ${lastResponseBody.slice(0, 500)}` : ''}`);
+        throw new Error(`Moltbot request failed with status ${response.status}`);
       }
-
-      console.warn(`[MoltbotAdapter] Received 404 from ${chatPath}; trying next known endpoint.`);
     }
 
-    throw new Error(
-      `Moltbot request failed with status ${lastStatusCode || 404}. `
-      + `Tried paths: ${this.chatPaths.join(', ')}${lastResponseBody ? `. Last body: ${lastResponseBody.slice(0, 500)}` : ''}`
-    );
+    throw new Error(`Moltbot request failed with status ${lastStatusCode || 404}`);
   }
 
   async executeStream({ message, sessionId, context = [], onEvent }) {
