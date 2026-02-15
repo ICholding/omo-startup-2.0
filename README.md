@@ -50,7 +50,7 @@ All operations follow this strict cycle:
 │       ↑                                            ↓       │
 │       └────────────── ADAPT ←──────────────────────┘       │
 ├─────────────────────────────────────────────────────────────┤
-│                    Tool Registry                             │
+│                    External Moltbot Runtime                             │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐      │
 │  │  Recon   │ │  Scan    │ │ Exploit  │ │   Post   │      │
 │  │  Tools   │ │  Tools   │ │  Tools   │ │ Exploit  │      │
@@ -62,11 +62,14 @@ All operations follow this strict cycle:
 
 ```
 .
-├── backend/                 # Express.js API + OMO Agent Core
-│   ├── server.js           # API endpoints for agent execution
-│   ├── agent-core/         # Cognitive architect implementation
-│   │   ├── agent-orchestrator.js
-│   │   └── tool-registry.js
+├── backend/                 # Express.js API + Moltbot adapter runtime
+│   ├── server.js           # API endpoints + SSE stream
+│   ├── lib/
+│   │   ├── runtime.js
+│   │   ├── agent-contract.js
+│   │   └── adapters/
+│   │       ├── moltbot-adapter.js
+│   │       └── custom-agent-adapter.js
 │   └── package.json
 │
 ├── frontend/               # React + Vite application

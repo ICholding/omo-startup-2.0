@@ -73,7 +73,8 @@
     "build:backend": "vite build --sourcemap",
     "serve": "vite preview",
     "start:prod": "node server.js",
-    "dev:fullstack": "concurrently \"npm start\" \"node server.js\""
+    "dev:fullstack": "concurrently \"npm start\" \"node server.js\"",
+    "validate:source": "node scripts/validate-source.js"
   },
   "eslintConfig": {
     "extends": [
