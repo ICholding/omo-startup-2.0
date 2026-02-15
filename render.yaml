@@ -8,10 +8,7 @@ services:
     autoDeploy: true
     envVars:
       - key: VITE_API_URL
-        fromService:
-          type: web
-          name: omo-backend
-          property: host
+        value: https://omo-backend.onrender.com
     routes:
       - type: rewrite
         source: /*

@@ -81,6 +81,11 @@ export const useSocket = (sessionId) => {
       setThinkingMessage(data?.message || 'Thinking...');
     });
 
+    stream.addEventListener('response', (event) => {
+      const data = JSON.parse(event.data || '{}');
+      setStreamedResponse(data?.message || '');
+    });
+
     stream.addEventListener('execution-complete', (event) => {
       const data = JSON.parse(event.data || '{}');
       setExecutionPackage(data);
