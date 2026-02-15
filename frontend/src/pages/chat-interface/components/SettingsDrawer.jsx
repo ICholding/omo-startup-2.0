@@ -22,7 +22,7 @@ const SettingsDrawer = ({ isOpen, onClose, archivedSessions = [], onRestoreSessi
 
       {/* Settings Drawer */}
       <div 
-        className={`fixed top-0 right-0 h-full w-[90vw] max-w-[340px] bg-[#1a1a1a]/95 backdrop-blur-xl shadow-2xl transform transition-transform duration-300 ease-in-out z-[70] flex flex-col rounded-l-3xl border-l border-white/10 ${
+        className={`fixed top-0 right-0 h-full w-[92vw] max-w-[720px] bg-[#1a1a1a]/95 backdrop-blur-xl shadow-2xl transform transition-transform duration-300 ease-in-out z-[70] flex flex-col rounded-l-3xl border-l border-white/10 ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
@@ -215,94 +215,9 @@ const CustomMemoryTab = () => {
 
 // Terminal Board Tab Component
 const TerminalBoardTab = () => {
-  const [isConnected, setIsConnected] = useState(false);
-  const [terminalOutput, setTerminalOutput] = useState(['Terminal ready...', 'Remote mode: standby']);
-  const [command, setCommand] = useState('');
-
-  const handleConnect = () => {
-    setIsConnected(!isConnected);
-    if (!isConnected) {
-      setTerminalOutput(prev => [...prev, 'Connected to cloud terminal...']);
-    } else {
-      setTerminalOutput(prev => [...prev, 'Disconnected from cloud terminal.']);
-    }
-  };
-
-  const handleCommand = (e) => {
-    e?.preventDefault();
-    if (command?.trim() && isConnected) {
-      setTerminalOutput(prev => [...prev, `$ ${command}`, 'Command executed on remote worker...']);
-      setCommand('');
-    }
-  };
-
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between mb-4">
-        <div className="text-white/80 text-sm">
-          <p>Cloud terminal connection</p>
-        </div>
-        <button
-          onClick={handleConnect}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            isConnected
-              ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' :'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-          }`}
-        >
-          {isConnected ? 'Disconnect' : 'Connect'}
-        </button>
-      </div>
-
-      {/* Terminal Display */}
-      <div className="bg-black/50 rounded-xl p-4 font-mono text-sm h-64 overflow-y-auto">
-        {terminalOutput?.map((line, index) => (
-          <div key={index} className="text-green-400 mb-1">
-            {line}
-          </div>
-        ))}
-      </div>
-
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex flex-wrap gap-2">
-          {['status', 'sessions:list', 'worker:health'].map((preset) => (
-            <button
-              key={preset}
-              type="button"
-              onClick={() => setCommand(preset)}
-              disabled={!isConnected}
-              className="px-2.5 py-1.5 text-xs rounded-md bg-[#2a2a2a] text-white/80 hover:bg-[#333333] disabled:opacity-40"
-            >
-              {preset}
-            </button>
-          ))}
-        </div>
-        <button
-          type="button"
-          onClick={() => setTerminalOutput(['Terminal cleared.'])}
-          className="px-2.5 py-1.5 text-xs rounded-md bg-red-500/20 text-red-300 hover:bg-red-500/30"
-        >
-          Clear
-        </button>
-      </div>
-
-      {/* Command Input */}
-      <form onSubmit={handleCommand} className="flex gap-2">
-        <input
-          type="text"
-          value={command}
-          onChange={(e) => setCommand(e?.target?.value)}
-          disabled={!isConnected}
-          placeholder={isConnected ? 'Enter command...' : 'Connect to terminal first'}
-          className="flex-1 bg-[#2a2a2a] text-white rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-white/20 disabled:opacity-50 disabled:cursor-not-allowed font-mono"
-        />
-        <button
-          type="submit"
-          disabled={!isConnected || !command?.trim()}
-          className="bg-[#444444] hover:bg-[#555555] text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Execute
-        </button>
-      </form>
+    <div className="w-full">
+      <div className="w-full rounded-2xl bg-black border border-white/10 overflow-hidden min-h-[280px]" />
     </div>
   );
 };

@@ -299,16 +299,8 @@ const ChatInterface = () => {
   const chatSurfaceClassName = `relative flex flex-col h-screen bg-background transition-opacity duration-300 ${isSidebarActive ? 'pointer-events-none select-none opacity-75' : 'opacity-100'}`;
 
   const renderBlankState = () => (
-    <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
-      <h1 className="text-foreground text-3xl md:text-4xl font-bold mb-3">Automation Assistant</h1>
-      <p className="text-muted-foreground text-sm md:text-base max-w-md mb-3">
-        Start a conversation in the input below.
-      </p>
-      <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
-        <button onClick={() => handleSuggestionClick('Give me a quick project status update')} className="px-3 py-1 rounded-full border border-border hover:text-foreground">Project status</button>
-        <button onClick={() => handleSuggestionClick('I need help troubleshooting a failing flow')} className="px-3 py-1 rounded-full border border-border hover:text-foreground">Troubleshooting</button>
-        <button onClick={() => handleSuggestionClick('Help me break this into next tasks')} className="px-3 py-1 rounded-full border border-border hover:text-foreground">Next tasks</button>
-      </div>
+    <div className="absolute inset-0 flex items-center justify-center">
+      <h1 className="text-3xl font-semibold tracking-tight">Assistant</h1>
     </div>
   );
 
