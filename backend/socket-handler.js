@@ -1,6 +1,7 @@
 // backend/socket-handler.js
 const { Server } = require('socket.io');
 const { searchAndSynthesize, shouldSearchWeb } = require('./services/web-search');
+const openRouter = require('./services/openrouter');
 
 /**
  * Socket.IO Handler
@@ -177,16 +178,13 @@ class SocketHandler {
       console.warn('[Socket] web-search skipped/failed:', e?.message);
     }
 
-    // Call your AI engine (keep it flexible)
-    if (this.hackerAI?.generateHackerAIResponse) {
-      return await this.hackerAI.generateHackerAIResponse(message, enrichedContext, modeContext);
+    // Use OpenRouter for conversational AI responses
+    try {
+      return await openRouter.generateResponse(message, enrichedContext, modeContext);
+    } catch (err) {
+      console.error('[Socket] OpenRouter error:', err.message);
+      throw err;
     }
-
-    if (this.hackerAI?.generateResponse) {
-      return await this.hackerAI.generateResponse(message, enrichedContext, modeContext);
-    }
-
-    throw new Error('hackerAI generator not configured');
   }
 }
 

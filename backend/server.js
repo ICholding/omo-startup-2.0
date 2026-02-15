@@ -158,4 +158,8 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Backend listening on 0.0.0.0:${PORT}`);
 });
 
+// Initialize Socket.IO handler
+const SocketHandler = require('./socket-handler');
+new SocketHandler(server, null, null);
+
 module.exports = { app, server };

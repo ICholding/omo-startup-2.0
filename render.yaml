@@ -28,6 +28,10 @@ services:
         value: moltbot
       - key: MOLTBOT_URL
         value: https://omo-moltbot-agent.onrender.com
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENROUTER_MODEL
+        value: openai/gpt-4o-mini
       - key: CORS_ALLOWED_ORIGINS
         value: https://omo-frontend.onrender.com,https://omo-backend.onrender.com,https://omo-moltbot-agent.onrender.com
 
