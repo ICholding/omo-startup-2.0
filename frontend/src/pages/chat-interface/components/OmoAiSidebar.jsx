@@ -378,49 +378,21 @@ const OmoAiSidebar = ({ isOpen, onClose, onActiveSessionChange, onNewSession, cu
   };
 
   const TerminalBoardTab = () => {
-    const [isConnected, setIsConnected] = useState(false);
-    const [terminalOutput, setTerminalOutput] = useState(['Terminal ready...', 'Remote mode: standby']);
-    const [command, setCommand] = useState('');
-
-    const handleCommand = (e) => {
-      e?.preventDefault();
-      if (command?.trim() && isConnected) {
-        setTerminalOutput((prev) => [...prev, `$ ${command}`, 'Executed...']);
-        setCommand('');
-      }
-    };
-
     return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="text-white/80 text-sm">Cloud terminal</div>
-          <button
-            onClick={() => setIsConnected(!isConnected)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              isConnected ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'
-            }`}
-          >
-            {isConnected ? 'Disconnect' : 'Connect'}
-          </button>
+      <div className="w-full space-y-4">
+        {/* Cloud Terminal Label */}
+        <div className="text-white/80 text-sm">
+          <p>Cloud terminal</p>
         </div>
-        <div className="bg-black/50 rounded-xl p-4 font-mono text-sm h-48 overflow-y-auto">
-          {terminalOutput?.map((line, i) => (
-            <div key={i} className="text-green-400 mb-1">{line}</div>
-          ))}
+        
+        {/* Terminal Screen Only */}
+        <div className="w-full rounded-2xl bg-black border border-white/10 overflow-hidden min-h-[280px]">
+          {/* Moltbot agent terminal view */}
+          <div className="p-4 font-mono text-sm text-green-400">
+            <div>Terminal ready...</div>
+            <div>Remote mode: standby</div>
+          </div>
         </div>
-        <form onSubmit={handleCommand} className="flex gap-2">
-          <input
-            type="text"
-            value={command}
-            onChange={(e) => setCommand(e?.target?.value)}
-            disabled={!isConnected}
-            placeholder={isConnected ? 'Enter command...' : 'Connect first'}
-            className="flex-1 bg-[#2a2a2a] text-white rounded-lg px-4 py-2 text-sm focus:outline-none disabled:opacity-50 font-mono"
-          />
-          <button type="submit" disabled={!isConnected || !command?.trim()} className="bg-[#444444] hover:bg-[#555555] text-white rounded-lg px-4 py-2 text-sm disabled:opacity-50">
-            Execute
-          </button>
-        </form>
       </div>
     );
   };
