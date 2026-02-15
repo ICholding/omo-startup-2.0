@@ -1,3 +1,4 @@
+const fetch = require('node-fetch');
 const { normalizeExecutionPackage } = require('../agent-contract');
 
 class MoltbotAdapter {
