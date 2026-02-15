@@ -5,6 +5,39 @@ class MoltbotAdapter {
   constructor(options = {}) {
     this.baseUrl = (options.baseUrl || process.env.MOLTBOT_URL || 'http://localhost:8080').replace(/\/$/, '');
     this.timeoutMs = Number(process.env.MOLTBOT_TIMEOUT_MS || 10000);
+    this.chatPaths = this.buildPathCandidates(
+      options.chatPath || process.env.MOLTBOT_CHAT_PATH,
+      ['/api/chat/message', '/chat/message', '/api/message', '/message']
+    );
+    this.healthPaths = this.buildPathCandidates(
+      options.healthPath || process.env.MOLTBOT_HEALTH_PATH,
+      ['/health', '/api/health']
+    );
+  }
+
+  buildPathCandidates(primaryPath, fallbackPaths = []) {
+    const normalizePath = (value) => {
+      if (!value || typeof value !== 'string') {
+        return null;
+      }
+
+      const trimmed = value.trim();
+      if (!trimmed) {
+        return null;
+      }
+
+      return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    };
+
+    const uniquePaths = new Set();
+    [primaryPath, ...fallbackPaths].forEach((path) => {
+      const normalized = normalizePath(path);
+      if (normalized) {
+        uniquePaths.add(normalized);
+      }
+    });
+
+    return [...uniquePaths];
   }
 
   async fetchWithTimeout(url, options = {}) {
@@ -22,11 +55,16 @@ class MoltbotAdapter {
     const maxAttempts = 3;
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       try {
-        const response = await this.fetchWithTimeout(`${this.baseUrl}/health`);
-        if (response.ok) {
-          return true;
+        for (const healthPath of this.healthPaths) {
+          const response = await this.fetchWithTimeout(`${this.baseUrl}${healthPath}`);
+          if (response.ok) {
+            return true;
+          }
+
+          if (response.status !== 404) {
+            console.warn(`[MoltbotAdapter] Health check returned status ${response.status} on ${healthPath} (attempt ${attempt}/${maxAttempts}).`);
+          }
         }
-        console.warn(`[MoltbotAdapter] Health check returned status ${response.status} (attempt ${attempt}/${maxAttempts}).`);
       } catch (error) {
         console.warn(`[MoltbotAdapter] Health check failed (attempt ${attempt}/${maxAttempts}): ${error.message}`);
       }
@@ -45,17 +83,26 @@ class MoltbotAdapter {
   }
 
   async executeBlocking({ message, sessionId, context = [] }) {
-    const response = await this.fetchWithTimeout(`${this.baseUrl}/api/chat/message`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, sessionId, context })
-    });
+    let lastStatusCode = null;
+    for (const chatPath of this.chatPaths) {
+      const response = await this.fetchWithTimeout(`${this.baseUrl}${chatPath}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, sessionId, context })
+      });
 
-    if (!response.ok) {
-      throw new Error(`Moltbot request failed with status ${response.status}`);
+      if (response.ok) {
+        return response.json();
+      }
+
+      lastStatusCode = response.status;
+
+      if (response.status !== 404) {
+        throw new Error(`Moltbot request failed with status ${response.status}`);
+      }
     }
 
-    return response.json();
+    throw new Error(`Moltbot request failed with status ${lastStatusCode || 404}`);
   }
 
   async executeStream({ message, sessionId, context = [], onEvent }) {
