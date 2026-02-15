@@ -1,25 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { getApiUrl } from '../config/api';
 
-const formatExecutionPackage = (payload = {}) => {
-  const summary = payload?.summary || 'Task executed.';
-  const activityLog = Array.isArray(payload?.activityLog) ? payload.activityLog : [];
-  const sections = payload?.sections || {};
-  const sectionEntries = Object.entries(sections);
-
-  const segmentedSection = sectionEntries.length > 0
-    ? `\n\n${sectionEntries.map(([title, body]) => `**${title}**\n${body}`).join('\n\n')}`
-    : '';
-
-  const activitySection = activityLog.length > 0
-    ? `\n\n**Activity Log**\n${activityLog
-      .map((entry) => `- ${entry?.title || entry?.type || 'activity'}${entry?.detail ? `: ${entry.detail}` : ''}`)
-      .join('\n')}`
-    : '';
-
-  return `**Summary**\n${summary}${segmentedSection}${activitySection}`;
-};
-
+/**
+ * useSocket Hook - SSE-based streaming for OMO Assistant
+ * 
+ * Provides clean, conversational UI without duplication
+ */
 export const useSocket = (sessionId) => {
   const streamRef = useRef(null);
   const [isConnected, setIsConnected] = useState(true);
@@ -83,14 +69,24 @@ export const useSocket = (sessionId) => {
 
     stream.addEventListener('response', (event) => {
       const data = JSON.parse(event.data || '{}');
-      setStreamedResponse(data?.message || '');
+      // Append to streaming response for live display
+      if (data?.message) {
+        setStreamedResponse(prev => prev + data.message);
+      }
     });
 
     stream.addEventListener('execution-complete', (event) => {
       const data = JSON.parse(event.data || '{}');
       setExecutionPackage(data);
-      setStreamedResponse(formatExecutionPackage(data));
-      const nextSuggestions = Array.isArray(data?.nextActions) ? data.nextActions.slice(0, 3) : [];
+      
+      // Use the summary as the final clean response
+      const finalResponse = data?.summary || streamedResponse || 'Task completed.';
+      setStreamedResponse(finalResponse);
+      
+      // Extract suggestions from nextActions
+      const nextSuggestions = Array.isArray(data?.nextActions) 
+        ? data.nextActions.slice(0, 3) 
+        : [];
       setSuggestions(nextSuggestions);
       setSuggestion(nextSuggestions[0] || null);
       setExecutionState('idle');
@@ -100,7 +96,7 @@ export const useSocket = (sessionId) => {
     stream.addEventListener('execution-error', (event) => {
       const data = JSON.parse(event.data || '{}');
       setExecutionState('error');
-      setStreamedResponse(`**Error:** ${data?.error || 'Failed to process request.'}`);
+      setStreamedResponse(data?.error || 'Failed to process request.');
       setIsStreaming(false);
       setIsConnecting(false);
       setIsConnected(false);
@@ -121,7 +117,7 @@ export const useSocket = (sessionId) => {
     };
 
     return true;
-  }, [sessionId, closeCurrentStream, executionState]);
+  }, [sessionId, closeCurrentStream, executionState, streamedResponse]);
 
   return {
     socket: null,
@@ -143,3 +139,5 @@ export const useSocket = (sessionId) => {
     reconnect: () => {}
   };
 };
+
+export default useSocket;
