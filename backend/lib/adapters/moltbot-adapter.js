@@ -58,18 +58,8 @@ class MoltbotAdapter {
   }
 
   async executeStream({ message, sessionId, context = [], onEvent }) {
-    // Moltbot doesn't support streaming - use blocking endpoint and simulate streaming
-    const response = await this.fetchWithTimeout(`${this.baseUrl}/api/chat/message`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, sessionId, context })
-    });
-
-    if (!response.ok) {
-      throw new Error(`Moltbot request failed with status ${response.status}`);
-    }
-
-    const data = await response.json();
+    // Moltbot doesn't support streaming - use the blocking endpoint and simulate stream events.
+    const data = await this.executeBlocking({ message, sessionId, context });
     
     // Emit response event to simulate streaming behavior
     onEvent?.('response', { message: data.response || data.message || data });
