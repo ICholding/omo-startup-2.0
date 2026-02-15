@@ -9,7 +9,7 @@ services:
     autoDeploy: true
     envVars:
       - key: VITE_API_URL
-        value: https://omo-startup-backend.onrender.com
+        value: https://omo-backend.onrender.com
     routes:
       - type: rewrite
         source: /*
