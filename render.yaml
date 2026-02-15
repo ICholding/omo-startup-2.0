@@ -35,11 +35,12 @@ services:
           name: moltbot-pentest
           property: host
       - key: CORS_ALLOWED_ORIGINS
-        value: https://omo-frontend.onrender.com
+        value: https://omo-frontend.onrender.com,https://omo-backend.onrender.com,https://moltbot-pentest.onrender.com
 
   - type: web
     name: moltbot-pentest
     env: docker
+    healthCheckPath: /health
     rootDir: docker/moltbot-pentest
     dockerfilePath: ./Dockerfile
     autoDeploy: true

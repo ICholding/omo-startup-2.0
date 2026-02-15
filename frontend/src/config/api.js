@@ -22,14 +22,21 @@ const inferRenderBackendUrl = () => {
 
   const { protocol, hostname } = window.location;
 
-  // For Render split services, infer backend host from frontend host:
-  // <service>.onrender.com -> <service>-backend.onrender.com
-  if (hostname.endsWith('.onrender.com') && !hostname.includes('-backend.')) {
-    const service = hostname.replace('.onrender.com', '');
-    return `${protocol}//${service}-backend.onrender.com`;
+  if (!hostname.endsWith('.onrender.com') || hostname.includes('-backend.')) {
+    return '';
   }
 
-  return '';
+  const service = hostname.replace('.onrender.com', '');
+
+  if (service === 'omo-frontend') {
+    return `${protocol}//omo-backend.onrender.com`;
+  }
+
+  if (service.endsWith('-frontend')) {
+    return `${protocol}//${service.replace(/-frontend$/, '-backend')}.onrender.com`;
+  }
+
+  return `${protocol}//${service}-backend.onrender.com`;
 };
 
 export const getApiBaseUrl = () => {
