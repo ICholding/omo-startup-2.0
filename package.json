@@ -5,7 +5,7 @@
   "description": "Monorepo launcher package for Render root deployments",
   "scripts": {
     "postinstall": "npm --prefix backend install --omit=dev",
-    "build": "npm install --prefix frontend && npm run build --prefix frontend",
+    "build": "npm install --prefix frontend --legacy-peer-deps && npm run build --prefix frontend",
     "start": "node backend/server.js"
   },
   "engines": {
