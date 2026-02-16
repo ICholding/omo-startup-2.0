@@ -7,6 +7,7 @@ const { existsSync } = require('fs');
 require('dotenv').config();
 
 const AgentRuntime = require('./lib/runtime');
+const executionEngine = require('./lib/execution-engine');
 
 const app = express();
 const PORT = process.env.PORT || 10000;
@@ -131,6 +132,42 @@ app.get('/api/config/brand', (req, res) => {
     clientName: process.env.CLIENT_NAME || 'Default Client',
     industry: process.env.INDUSTRY || 'General'
   });
+});
+
+// NEW: Direct execution endpoint (integrated Moltbot)
+app.post('/api/execute', async (req, res) => {
+  const { task_type, command, parameters = {}, reason } = req.body || {};
+  
+  if (!task_type || !command) {
+    return res.status(400).json({ 
+      status: 'error', 
+      error: 'Missing required fields: task_type, command' 
+    });
+  }
+  
+  try {
+    const result = await executionEngine.execute({
+      task_type,
+      command,
+      parameters,
+      reason
+    });
+    
+    res.json({
+      status: result.status === 'success' ? 'completed' : 'error',
+      task_type,
+      reason,
+      result,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[API /api/execute] Execution failed:', error);
+    res.status(500).json({
+      status: 'error',
+      error: error.message || 'Execution failed',
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 app.use(express.static(FRONTEND_BUILD_PATH));

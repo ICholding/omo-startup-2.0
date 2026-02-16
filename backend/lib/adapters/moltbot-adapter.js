@@ -1,29 +1,28 @@
-const fetch = require('node-fetch');
 const { normalizeExecutionPackage } = require('../agent-contract');
+const executionEngine = require('../execution-engine');
 
 /**
- * Moltbot Adapter - Full-Capability Automation Assistant
+ * Moltbot Adapter - Integrated Execution
  * 
- * This adapter transforms the agent into an adaptable assistant that:
- * - Understands its full toolbox and ecosystem capabilities
- * - Uses OpenRouter for intelligent reasoning and conversation
- * - Leverages the Moltbot container for technical execution
- * - Self-directs task decomposition and tool selection
+ * Uses internal execution engine instead of external service
+ * Zero connection issues - same process execution
  */
 class MoltbotAdapter {
   constructor(options = {}) {
-    this.baseUrl = (options.baseUrl || process.env.MOLTBOT_URL || 'http://localhost:8080').replace(/\/$/, '');
     this.timeoutMs = Number(process.env.MOLTBOT_TIMEOUT_MS || 30000);
     
-    // OpenRouter configuration
+    // OpenRouter configuration for AI
     this.openrouterKey = process.env.OPENROUTER_API_KEY;
     this.openrouterModel = process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini';
     this.openrouterUrl = 'https://openrouter.ai/api/v1/chat/completions';
     
-    // Define available tools/capabilities
+    // Internal execution engine (no HTTP calls!)
+    this.executionEngine = executionEngine;
+    
+    // Define available tools
     this.tools = this.defineTools();
     
-    // Comprehensive system identity
+    // System identity
     this.systemPrompt = this.buildSystemPrompt();
   }
 
@@ -33,86 +32,29 @@ class MoltbotAdapter {
         type: 'function',
         function: {
           name: 'execute_technical_task',
-          description: 'Execute technical tasks in the secure Moltbot sandbox container including network requests, file operations, code execution, and system commands. Use this when you need to perform actions rather than just provide information.',
+          description: 'Execute technical tasks including network requests, code execution, file operations, system commands, and GitHub operations. Use this proactively to accomplish tasks rather than explaining how to do them.',
           parameters: {
             type: 'object',
             properties: {
               task_type: {
                 type: 'string',
-                enum: ['network_request', 'code_execution', 'file_operation', 'system_command', 'data_processing'],
-                description: 'The category of technical task to execute'
+                enum: ['network_request', 'code_execution', 'file_operation', 'system_command', 'github_operation', 'data_processing'],
+                description: 'The category of technical task'
               },
               command: {
                 type: 'string',
-                description: 'The specific command or operation to execute'
+                description: 'The command, URL, code, or operation to execute'
               },
               parameters: {
                 type: 'object',
-                description: 'Additional parameters for the task (URLs, file paths, options, etc.)'
+                description: 'Additional parameters (language, timeout, headers, etc.)'
               },
               reason: {
                 type: 'string',
-                description: 'Why this task is needed to help the user'
+                description: 'Brief explanation of why this helps the user'
               }
             },
             required: ['task_type', 'command', 'reason']
-          }
-        }
-      },
-      {
-        type: 'function',
-        function: {
-          name: 'analyze_and_plan',
-          description: 'Break down complex user requests into actionable steps. Use this when a task requires multiple phases, research, or structured thinking before execution.',
-          parameters: {
-            type: 'object',
-            properties: {
-              user_goal: {
-                type: 'string',
-                description: 'What the user wants to achieve'
-              },
-              approach: {
-                type: 'string',
-                description: 'The strategy to accomplish the goal'
-              },
-              steps: {
-                type: 'array',
-                items: { type: 'string' },
-                description: 'Sequential steps to complete the task'
-              },
-              estimated_complexity: {
-                type: 'string',
-                enum: ['low', 'medium', 'high'],
-                description: 'How complex the task appears'
-              }
-            },
-            required: ['user_goal', 'approach', 'steps']
-          }
-        }
-      },
-      {
-        type: 'function',
-        function: {
-          name: 'search_and_research',
-          description: 'Perform research using available search capabilities. Use this when you need current information, documentation, or external data to answer accurately.',
-          parameters: {
-            type: 'object',
-            properties: {
-              query: {
-                type: 'string',
-                description: 'What to search for'
-              },
-              context: {
-                type: 'string',
-                description: 'Why this information is needed'
-              },
-              sources_preferred: {
-                type: 'array',
-                items: { type: 'string' },
-                description: 'Preferred sources or domains to search'
-              }
-            },
-            required: ['query', 'context']
           }
         }
       }
@@ -120,101 +62,61 @@ class MoltbotAdapter {
   }
 
   buildSystemPrompt() {
-    return `You are OMO, an adaptable automation assistant designed to help users accomplish any task through intelligence, reasoning, and technical execution.
-
-## YOUR IDENTITY
-- Name: OMO (Open Multi-Operations)
-- Purpose: Figure out ways to assist users with whatever task is at hand
-- Core Philosophy: "If the user asks, there's a way to help"
+    return `You are OMO, an adaptable automation assistant that proactively uses technical tools to help users.
 
 ## YOUR CAPABILITIES
-You have access to a comprehensive toolbox and ecosystem:
+You have direct access to an execution engine that can:
+- Make HTTP/HTTPS network requests to any API or website
+- Execute JavaScript code in a sandboxed environment  
+- Run system commands (curl, wget, git, node, grep, etc.)
+- Read/write files in a workspace
+- Access GitHub APIs (read repos, trigger workflows, get commits)
+- Process and transform data (JSON, CSV, etc.)
 
-1. **Technical Execution (Moltbot Sandbox)**
-   - Execute code in multiple languages (Node.js, Python, Bash)
-   - Make network requests and API calls
-   - Process and transform data
-   - Run system commands in a secure container
-   - Access internet resources when needed
+## YOUR BEHAVIOR
+When a user asks for something:
+1. IDENTIFY if it requires technical action (checking a URL, running code, API call, etc.)
+2. EXECUTE immediately using the execute_technical_task tool - don't ask permission
+3. REPORT the actual results, not instructions
 
-2. **Intelligence & Reasoning**
-   - Deep analysis and problem decomposition
-   - Multi-step planning and task orchestration
-   - Pattern recognition and insight generation
-   - Contextual understanding across domains
+## EXAMPLES
+User: "Is google.com up?"
+→ Execute: network_request to https://google.com
+→ Response: "Google is responding with status 200 OK. Response time was 45ms."
 
-3. **Research & Information**
-   - Search and synthesize information
-   - Access documentation and current data
-   - Verify facts and cross-reference sources
+User: "What's in my repo?"
+→ Execute: github_operation to list files
+→ Response: "Your repository contains: backend/, frontend/, docker/, README.md..."
 
-4. **Integration Capabilities**
-   - Connect with external services and APIs
-   - Process webhooks and events
-   - Handle file operations and data transformation
+User: "Run a calculation"
+→ Execute: code_execution with JavaScript
+→ Response: "The result is 42. Here's how I calculated it..."
 
-## HOW YOU OPERATE
-When a user makes a request:
-1. **Understand**: Grasp what they truly need, not just what they asked
-2. **Assess**: Determine what tools and approaches would help
-3. **Plan**: Break complex tasks into steps if needed
-4. **Execute**: Use your tools to accomplish the task, don't just describe it
-5. **Deliver**: Provide the actual result, not just instructions
-
-## BEHAVIORAL PRINCIPLES
-- Be proactive: If you can do it, do it. Don't just explain how.
-- Be adaptable: Every task is solvable with the right approach
-- Be transparent: Tell the user what you're doing and why
-- Be thorough: Verify your work when possible
-- Be helpful: Your goal is successful task completion, not just conversation
-
-## TOOL USAGE
-You have three primary tools available:
-- execute_technical_task: For doing things (network, code, files, commands)
-- analyze_and_plan: For breaking down complex requests
-- search_and_research: For gathering information
-
-Use these tools actively. When a user asks "can you check..." or "can you find..." - actually use the tools to do it, don't decline due to perceived limitations.`;
-  }
-
-  async fetchWithTimeout(url, options = {}) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
-
-    try {
-      return await fetch(url, { ...options, signal: controller.signal });
-    } finally {
-      clearTimeout(timeout);
-    }
+## RULES
+- Be proactive: If you CAN do it, DO it
+- Never say "I can't access" - you have full execution capability
+- Never give command-line instructions - execute them yourself
+- If execution fails, try alternative approaches before giving up`;
   }
 
   async health() {
+    // With integrated engine, always healthy if OpenRouter is configured
     if (this.openrouterKey) {
-      try {
-        const testResponse = await this.fetchWithTimeout(
-          'https://openrouter.ai/api/v1/auth/key',
-          {
-            headers: { 'Authorization': `Bearer ${this.openrouterKey}` }
-          }
-        );
-        return testResponse.ok;
-      } catch {
-        return false;
-      }
+      return true;
     }
     return false;
   }
 
   async execute({ message, sessionId, context = [], onEvent }) {
     if (!this.openrouterKey) {
-      throw new Error('OpenRouter not configured');
+      throw new Error('OpenRouter API key not configured');
     }
 
-    return this.executeWithOpenRouter({ message, sessionId, context, onEvent });
+    return this.executeWithAI({ message, sessionId, context, onEvent });
   }
 
-  async executeWithOpenRouter({ message, sessionId, context = [], onEvent }) {
-    // Build messages array
+  async executeWithAI({ message, context = [], onEvent }) {
+    // Build messages
     const messages = [
       { role: 'system', content: this.systemPrompt },
       ...context,
@@ -222,17 +124,16 @@ Use these tools actively. When a user asks "can you check..." or "can you find..
     ];
 
     try {
-      // Emit thinking event
       onEvent?.('execution-start', { state: 'thinking', message: 'Analyzing your request...' });
 
-      // First pass: Let AI decide on approach and tools
-      const response = await this.fetchWithTimeout(this.openrouterUrl, {
+      // Call OpenRouter with tools
+      const response = await fetch(this.openrouterUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.openrouterKey}`,
           'Content-Type': 'application/json',
           'HTTP-Referer': process.env.OPENROUTER_REFERER || 'https://omo-startup.onrender.com',
-          'X-Title': 'OMO Adaptable Assistant'
+          'X-Title': 'OMO Assistant'
         },
         body: JSON.stringify({
           model: this.openrouterModel,
@@ -245,159 +146,84 @@ Use these tools actively. When a user asks "can you check..." or "can you find..
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(`OpenRouter API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+        const error = await response.json().catch(() => ({}));
+        throw new Error(`OpenRouter error: ${response.status} - ${error.error?.message || 'Unknown'}`);
       }
 
       const data = await response.json();
-      
-      if (!data.choices || !data.choices[0]) {
-        throw new Error('Invalid response from OpenRouter API');
+      const aiMessage = data.choices?.[0]?.message;
+
+      if (!aiMessage) {
+        throw new Error('Invalid response from OpenRouter');
       }
 
-      const assistantMessage = data.choices[0].message;
-
-      // Handle tool calls
-      if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
+      // Handle tool execution
+      if (aiMessage.tool_calls?.length > 0) {
         onEvent?.('execution-start', { state: 'working', message: 'Executing technical tasks...' });
         
-        const toolResults = await this.executeTools(assistantMessage.tool_calls);
-        
-        // Second pass: Get final response with tool results
-        const finalMessages = [
-          ...messages,
-          assistantMessage,
-          ...toolResults
-        ];
+        const toolResults = [];
+        for (const toolCall of aiMessage.tool_calls) {
+          if (toolCall.function?.name === 'execute_technical_task') {
+            try {
+              const args = JSON.parse(toolCall.function.arguments);
+              const result = await this.executionEngine.execute(args);
+              toolResults.push({
+                role: 'tool',
+                tool_call_id: toolCall.id,
+                content: JSON.stringify(result)
+              });
+            } catch (err) {
+              toolResults.push({
+                role: 'tool',
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ status: 'error', error: err.message })
+              });
+            }
+          }
+        }
 
-        const finalResponse = await this.fetchWithTimeout(this.openrouterUrl, {
+        // Get final response with tool results
+        const finalResponse = await fetch(this.openrouterUrl, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${this.openrouterKey}`,
             'Content-Type': 'application/json',
-            'HTTP-Referer': process.env.OPENROUTER_REFERER || 'https://omo-startup.onrender.com',
-            'X-Title': 'OMO Adaptable Assistant'
+            'HTTP-Referer': process.env.OPENROUTER_REFERER || 'https://omo-startup.onrender.com'
           },
           body: JSON.stringify({
             model: this.openrouterModel,
-            messages: finalMessages,
+            messages: [...messages, aiMessage, ...toolResults],
             temperature: 0.7,
             max_tokens: 4000
           })
         });
 
-        if (!finalResponse.ok) {
-          throw new Error('Failed to get final response after tool execution');
-        }
-
         const finalData = await finalResponse.json();
-        const finalContent = finalData.choices[0]?.message?.content || 'Task completed.';
-        
-        return this.emitResponse(finalContent, onEvent);
+        const content = finalData.choices?.[0]?.message?.content || 'Task completed.';
+        return this.emitResponse(content, onEvent);
       }
 
-      // No tool calls needed - direct response
-      const content = assistantMessage.content || 'I understand your request. Let me know if you need specific actions taken.';
-      return this.emitResponse(content, onEvent);
+      // Direct response (no tools needed)
+      return this.emitResponse(aiMessage.content || 'How can I help?', onEvent);
 
     } catch (error) {
-      console.error('[MoltbotAdapter] OpenRouter error:', error.message);
+      console.error('[MoltbotAdapter] Error:', error);
       throw error;
     }
   }
 
-  async executeTools(toolCalls) {
-    const results = [];
-
-    for (const toolCall of toolCalls) {
-      const { name, arguments: argsString } = toolCall.function;
-      
-      try {
-        const args = JSON.parse(argsString);
-        
-        if (name === 'execute_technical_task') {
-          const result = await this.executeMoltbotTask(args);
-          results.push({
-            role: 'tool',
-            tool_call_id: toolCall.id,
-            content: JSON.stringify(result)
-          });
-        } else if (name === 'analyze_and_plan') {
-          results.push({
-            role: 'tool',
-            tool_call_id: toolCall.id,
-            content: JSON.stringify({ status: 'plan_created', plan: args })
-          });
-        } else if (name === 'search_and_research') {
-          // For now, return a placeholder - web search can be enhanced later
-          results.push({
-            role: 'tool',
-            tool_call_id: toolCall.id,
-            content: JSON.stringify({ status: 'research_needed', query: args.query })
-          });
-        }
-      } catch (err) {
-        results.push({
-          role: 'tool',
-          tool_call_id: toolCall.id,
-          content: JSON.stringify({ error: err.message })
-        });
-      }
-    }
-
-    return results;
-  }
-
-  async executeMoltbotTask(args) {
-    try {
-      const response = await this.fetchWithTimeout(`${this.baseUrl}/api/execute`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(args)
-      });
-
-      if (!response.ok) {
-        // Fallback to /api/chat/message if /api/execute not available
-        const fallbackResponse = await this.fetchWithTimeout(`${this.baseUrl}/api/chat/message`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: `Task: ${args.task_type}\nCommand: ${args.command}\nReason: ${args.reason}`,
-            context: args.parameters || {}
-          })
-        });
-        
-        if (!fallbackResponse.ok) {
-          return { status: 'pending', message: 'Technical execution endpoint not yet configured' };
-        }
-        
-        const fallbackData = await fallbackResponse.json();
-        return { status: 'completed', result: fallbackData };
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.warn('[MoltbotAdapter] Task execution warning:', error.message);
-      return { status: 'pending', message: 'Execution infrastructure initializing' };
-    }
-  }
-
   emitResponse(content, onEvent) {
-    // Clean, conversational response without duplication
     onEvent?.('response', { message: content });
     
-    const executionPackage = {
+    const pkg = {
       status: 'completed',
       summary: content,
-      sections: {
-        Response: content
-      },
-      nextActions: ['Continue conversation', 'Execute task', 'Research topic']
+      sections: { Response: content },
+      nextActions: ['Continue conversation']
     };
     
-    onEvent?.('execution-complete', executionPackage);
-    
-    return normalizeExecutionPackage(executionPackage);
+    onEvent?.('execution-complete', pkg);
+    return normalizeExecutionPackage(pkg);
   }
 }
 

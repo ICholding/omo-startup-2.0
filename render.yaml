@@ -26,20 +26,17 @@ services:
         value: production
       - key: AGENT_PROVIDER
         value: moltbot
-      - key: MOLTBOT_URL
-        value: https://omo-moltbot-agent.onrender.com
       - key: OPENROUTER_API_KEY
         sync: false
       - key: OPENROUTER_MODEL
         value: openai/gpt-4o-mini
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: GITHUB_REPO
+        value: ICholding/omo-startup-2.0
       - key: CORS_ALLOWED_ORIGINS
-        value: https://omo-frontend.onrender.com,https://omo-backend.onrender.com,https://omo-moltbot-agent.onrender.com
+        value: https://omo-frontend.onrender.com,https://omo-backend.onrender.com
 
-  - type: web
-    name: moltbot-pentest
-    env: docker
-    healthCheckPath: /health
-    rootDir: docker/moltbot-pentest
-    dockerfilePath: ./Dockerfile
-    autoDeploy: true
-    healthCheckPath: /health
+  # Note: Moltbot is now integrated into the backend service
+  # The docker/moltbot-pentest folder is kept for future reference
+  # but is no longer deployed as a separate service
