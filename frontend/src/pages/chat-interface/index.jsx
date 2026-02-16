@@ -37,7 +37,6 @@ const ChatInterface = () => {
     executionState,
     suggestion,
     suggestions,
-    thinkingMessage,
     sendMessage: sendSocketMessage
   } = useSocket(sessionId);
 
@@ -372,10 +371,7 @@ const ChatInterface = () => {
 
                     {showThinkingForCurrentRequest && isStreaming && executionState !== 'responding' && (
                       <div className="message-group">
-                        <ThinkingIndicator
-                          label={thinkingMessage}
-                          state={executionState}
-                        />
+                        <ThinkingIndicator />
                       </div>
                     )}
 
