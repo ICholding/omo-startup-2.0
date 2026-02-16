@@ -100,6 +100,12 @@ class MoltbotAdapter {
         mode 
       });
 
+      onEvent?.('execution-start', {
+        state: 'planning',
+        message: 'Working... planning tool strategy',
+        mode
+      });
+
       const toolConfig = this.modelRouter.getToolConfig(mode);
 
       const response = await fetch(this.openrouterUrl, {
@@ -169,9 +175,22 @@ class MoltbotAdapter {
         try {
           const args = JSON.parse(toolCall.function.arguments);
           console.log(`[Adapter] Executing: ${args.task_type} - ${args.command}`);
+
+          onEvent?.('execution-start', {
+            state: 'executing',
+            message: `Working... ${args.task_type.replace(/_/g, ' ')}`,
+            mode
+          });
           
           const result = await this.executionEngine.execute(args);
           executionResult = result;
+
+          onEvent?.('execution-start', {
+            state: 'processing',
+            message: 'Working... validating tool output',
+            mode
+          });
+
           toolResults.push({
             role: 'tool',
             tool_call_id: toolCall.id,
@@ -189,6 +208,11 @@ class MoltbotAdapter {
 
     // If successful execution, format and return
     if (executionResult && executionResult.status === 'success') {
+      onEvent?.('execution-start', {
+        state: 'processing',
+        message: 'Working... preparing final response',
+        mode
+      });
       const resultSummary = this.formatExecutionResult(executionResult);
       return this.emitResponse(resultSummary, onEvent);
     }
