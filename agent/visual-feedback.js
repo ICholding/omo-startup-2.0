@@ -52,6 +52,17 @@ class VisualFeedback {
     phone: '📞',
     notification: '🔔',
     
+    // Cloud Storage
+    cloud: '☁️',
+    upload: '⬆️',
+    download: '⬇️',
+    sync: '🔄',
+    storage: '💾',
+    database: '🗄️',
+    backup: '💿',
+    folder: '📁',
+    file: '📄'
+    
     // AI/Agent
     robot: '🤖',
     brain: '🧠',
@@ -268,7 +279,7 @@ class VisualFeedback {
                     event.current ? this.get('processing') :
                     this.get('pending');
       const time = event.time ? ` (${event.time})` : '';
-      return `${connector ${emoji} ${event.name}${time}`;
+      return `${connector} ${emoji} ${event.name}${time}`;
     }).join('\n');
   }
 
@@ -282,6 +293,59 @@ class VisualFeedback {
                         status === 'in_progress' ? this.get('processing') :
                         this.get('pending');
     return `${target} ${statusEmoji} ${goal}\n${bar}`;
+  }
+
+  /**
+   * Format cloud storage operation
+   */
+  static cloudStorage(action, fileName, size = '', status = 'running') {
+    const cloud = this.get('cloud');
+    const actionEmoji = action === 'upload' ? this.get('upload') :
+                        action === 'download' ? this.get('download') :
+                        action === 'sync' ? this.get('sync') :
+                        this.get('storage');
+    const statusEmoji = status === 'running' ? this.get('processing') :
+                        status === 'success' ? this.get('success') :
+                        this.get('error');
+    const sizeStr = size ? ` (${size})` : '';
+    return `${cloud} ${actionEmoji} ${statusEmoji} ${action} ${fileName}${sizeStr}`;
+  }
+
+  /**
+   * Format file list
+   */
+  static fileList(files, title = 'Files') {
+    const folder = this.get('folder');
+    let result = `${folder} ${title}:\n`;
+    files.forEach((file, i) => {
+      const fileEmoji = this.get('file');
+      const size = file.fileSize ? ` (${this.formatBytes(file.fileSize)})` : '';
+      result += `${i + 1}. ${fileEmoji} ${file.fileName}${size}\n`;
+    });
+    return result;
+  }
+
+  /**
+   * Format storage stats
+   */
+  static storageStats(stats) {
+    const storage = this.get('storage');
+    const cloud = this.get('cloud');
+    return `${cloud} ${storage} Storage Stats:\n` +
+           `${this.get('file')} Total Files: ${stats.totalFiles}\n` +
+           `${this.get('storage')} Total Size: ${stats.totalSizeFormatted}`;
+  }
+
+  /**
+   * Format bytes to human readable
+   */
+  static formatBytes(bytes, decimals = 2) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
   }
 }
 
