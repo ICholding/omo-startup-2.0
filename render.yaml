@@ -28,12 +28,22 @@ services:
         value: moltbot
       - key: OPENROUTER_API_KEY
         sync: false
+      - key: OPENROUTER_BASE_URL
+        value: https://openrouter.ai/api/v1
+      - key: PRIMARY_MODEL
+        value: x-ai/grok-code-fast-1
+      - key: FALLBACK_MODEL
+        value: openai/gpt-4o-mini
+      - key: SITE_URL
+        value: https://omo-startup.onrender.com
+      - key: APP_NAME
+        value: OMO Clawbot
       - key: OPENROUTER_MODEL
         value: anthropic/claude-3.5-sonnet
       - key: OPENROUTER_MODEL_CHAT
         value: anthropic/claude-3.5-sonnet
       - key: OPENROUTER_MODEL_AGENT
-        value: xai/grok-beta
+        value: x-ai/grok-code-fast-1
       - key: OPENROUTER_MODEL_CODE
         value: openai/gpt-4o
       - key: GITHUB_TOKEN

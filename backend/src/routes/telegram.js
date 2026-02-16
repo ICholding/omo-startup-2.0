@@ -94,10 +94,11 @@ async function callClawbot(userText, chatId, username = 'telegram_user') {
     if (data?.content) return data.content;
     if (data?.text) return data.text;
     
-    return JSON.stringify(data);
+    console.warn('[Telegram] Unexpected clawbot response format:', data);
+    return '⚠️ I hit a temporary response formatting issue. Please try again.';
   } catch (error) {
     console.error('[Telegram] Clawbot call failed:', error.message);
-    return `Sorry, I couldn't process that request. Error: ${error.message}`;
+    return '⚠️ The AI service is temporarily unavailable. Please try again.';
   }
 }
 
