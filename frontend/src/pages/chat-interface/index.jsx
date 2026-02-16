@@ -15,7 +15,7 @@ import {
   addSession,
 } from '../../utils/sessionManager';
 
-import '@assistant-ui/react/styles/index.css';
+import '@assistant-ui/react-ui/styles/index.css';
 
 const SESSION_ID_KEY = 'omo-session-id';
 const CHAT_MESSAGES_KEY = 'omo-chat-messages';
