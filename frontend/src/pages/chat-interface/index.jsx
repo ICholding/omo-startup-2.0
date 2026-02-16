@@ -365,7 +365,7 @@ const ChatInterface = () => {
 
                     {showThinkingForCurrentRequest && isStreaming && executionState !== 'responding' && (
                       <div className="message-group">
-                        <ThinkingIndicator label={`${thinkingMessage} (${conversationState})`} />
+                        <ThinkingIndicator label={thinkingMessage} state={executionState} />
                       </div>
                     )}
 

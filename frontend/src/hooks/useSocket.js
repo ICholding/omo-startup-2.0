@@ -18,6 +18,37 @@ export const useSocket = (sessionId) => {
   const [thinkingMessage, setThinkingMessage] = useState('Working...');
   const [executionPackage, setExecutionPackage] = useState(null);
 
+  const applyExecutionUpdate = useCallback((payload = {}) => {
+    const state = (payload?.state || '').toLowerCase() || 'thinking';
+    setExecutionState(state);
+
+    if (payload?.message) {
+      setThinkingMessage(payload.message);
+      return;
+    }
+
+    switch (state) {
+      case 'thinking':
+        setThinkingMessage('Working... analyzing your request');
+        break;
+      case 'working':
+        setThinkingMessage('Working... executing task');
+        break;
+      case 'executing':
+        setThinkingMessage('Working... running commands');
+        break;
+      case 'fetching':
+        setThinkingMessage('Working... fetching data');
+        break;
+      case 'processing':
+        setThinkingMessage('Working... processing results');
+        break;
+      default:
+        setThinkingMessage('Working...');
+        break;
+    }
+  }, []);
+
   const resetStreamingState = () => {
     setStreamedResponse('');
     setThinkingMessage('Working...');
@@ -63,29 +94,17 @@ export const useSocket = (sessionId) => {
 
     stream.addEventListener('execution-start', (event) => {
       const data = JSON.parse(event.data || '{}');
-      const state = data?.state || 'thinking';
-      setExecutionState(state);
-      
-      // Dynamic thinking messages based on state
-      switch (state) {
-        case 'thinking':
-          setThinkingMessage('Working... analyzing your request');
-          break;
-        case 'working':
-          setThinkingMessage('Working... executing task');
-          break;
-        case 'executing':
-          setThinkingMessage('Working... running commands');
-          break;
-        case 'fetching':
-          setThinkingMessage('Working... fetching data');
-          break;
-        case 'processing':
-          setThinkingMessage('Working... processing results');
-          break;
-        default:
-          setThinkingMessage(data?.message || 'Working...');
-      }
+      applyExecutionUpdate(data);
+    });
+
+    stream.addEventListener('execution-update', (event) => {
+      const data = JSON.parse(event.data || '{}');
+      applyExecutionUpdate(data);
+    });
+
+    stream.addEventListener('status', (event) => {
+      const data = JSON.parse(event.data || '{}');
+      applyExecutionUpdate(data);
     });
 
     stream.addEventListener('response', (event) => {
@@ -135,7 +154,7 @@ export const useSocket = (sessionId) => {
     };
 
     return true;
-  }, [sessionId, closeCurrentStream, executionState, streamedResponse]);
+  }, [sessionId, closeCurrentStream, executionState, streamedResponse, applyExecutionUpdate]);
 
   return {
     socket: null,
