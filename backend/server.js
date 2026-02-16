@@ -196,3 +196,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
 });
 
 module.exports = { app, server };
+
+// WhatsApp ClawBot Integration
+const whatsappRoutes = require('./src/routes/whatsapp');
+app.use('/api/whatsapp', whatsappRoutes);
