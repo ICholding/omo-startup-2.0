@@ -275,13 +275,37 @@ YOU HAVE THE CAPABILITY. THE TOOL IS YOUR CAPABILITY. USE IT.`;
   }
 
   formatExecutionResult(result) {
+    // Handle HTTP responses with error status codes
+    if (result.statusCode && result.statusCode >= 400) {
+      const statusMessages = {
+        400: 'Bad Request',
+        401: 'Unauthorized - Authentication required',
+        403: 'Forbidden - Access denied',
+        404: 'Not Found - The requested resource could not be found',
+        500: 'Internal Server Error',
+        502: 'Bad Gateway',
+        503: 'Service Unavailable'
+      };
+      const statusMsg = statusMessages[result.statusCode] || `HTTP ${result.statusCode}`;
+      return `Request failed: ${statusMsg}. Please check the URL or try again later.`;
+    }
+    
     // Format different result types for display
     if (result.body && typeof result.body === 'string') {
-      // HTTP response
+      // HTTP response - check if body is error page
+      if (result.body.includes('Not Found') || result.body.includes('404')) {
+        return 'The requested page was not found. Please check the URL and try again.';
+      }
+      // Try to parse JSON responses
       try {
         const parsed = JSON.parse(result.body);
+        // Check if parsed content is an error message
+        if (parsed.error || parsed.message) {
+          return `Error: ${parsed.error || parsed.message}`;
+        }
         return JSON.stringify(parsed, null, 2);
       } catch {
+        // Return truncated body for HTML/text responses
         return result.body.substring(0, 2000);
       }
     }
@@ -403,13 +427,18 @@ MAKE THE TOOL CALL NOW. NO TEXT RESPONSE WITHOUT TOOL.`;
   }
 
   emitResponse(content, onEvent) {
-    onEvent?.('response', { message: content });
+    // Ensure content is never undefined or empty
+    const safeContent = content && typeof content === 'string' && content.trim() 
+      ? content.trim() 
+      : 'I processed your request but encountered an issue generating a response. Please try again.';
+    
+    onEvent?.('response', { message: safeContent });
     
     const pkg = {
       status: 'completed',
-      summary: content,
-      sections: { Response: content },
-      nextActions: ['Continue conversation']
+      summary: safeContent,
+      sections: { Response: safeContent },
+      nextActions: ['Continue conversation', 'Try a different approach']
     };
     
     onEvent?.('execution-complete', pkg);
