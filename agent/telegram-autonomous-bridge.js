@@ -4,13 +4,13 @@
  * Removes all limitations mentioned in Telegram conversations
  */
 
-const EnhancedAutonomousAgent = require('./enhanced-autonomous');
+const SuperAgent = require('./super-agent');
 const VisualFeedback = require('./visual-feedback');
 
 class TelegramAutonomousBridge {
   constructor(telegramBot) {
     this.bot = telegramBot;
-    this.agent = new EnhancedAutonomousAgent();
+    this.agent = new SuperAgent();
     this.userSessions = new Map();
     this.initialized = false;
   }
@@ -38,8 +38,8 @@ class TelegramAutonomousBridge {
     const thinkingMsg = VisualFeedback.thinking('Processing your request');
     console.log(`[TAB] ${thinkingMsg}`);
 
-    // Parse intent from message
-    const intent = this.parseIntent(message);
+    // Use super agent's intent understanding
+    const intent = await this.awareness?.understandIntent(message) || this.parseIntent(message);
 
     // Process based on intent
     switch (intent.type) {
@@ -63,6 +63,9 @@ class TelegramAutonomousBridge {
 
       case 'autonomous_task':
         return await this.handleAutonomousTask(userId, message);
+
+      case 'cloud':
+        return await this.handleCloudCommand(userId, message);
 
       case 'status':
         return await this.handleStatus(userId);
@@ -151,6 +154,11 @@ class TelegramAutonomousBridge {
       return { type: 'autonomous_task', params: { raw: message } };
     }
 
+    // Cloud storage commands
+    if (lowerMsg.match(/list files|show files|cloud files|upload.*cloud|download.*cloud/i)) {
+      return { type: 'cloud', params: { raw: message } };
+    }
+
     return { type: 'general', params: { message } };
   }
 
@@ -229,48 +237,80 @@ class TelegramAutonomousBridge {
   }
 
   async handleAutonomousTask(userId, message) {
-    // This is where the magic happens - the agent decides what to do
+    // Use Super Agent's advanced processing
     const task = message.replace(/autonomous|auto|do it|handle this/i, '').trim();
     
-    // Create a goal for this task
-    const goal = await this.agent.setGoal(`Autonomous task: ${task}`, 8);
+    // Process with full awareness and self-improvement
+    const result = await this.agent.processRequest(task, { userId });
     
-    // Analyze and decide actions
-    const actions = await this.analyzeAndPlan(task);
+    return result;
+  }
+
+  /**
+   * Handle cloud storage commands
+   */
+  async handleCloudCommand(userId, message) {
+    const lowerMsg = message.toLowerCase();
     
-    let response = VisualFeedback.autonomousTask(task, 'planning') + '\n\n';
-    response += `${VisualFeedback.get('arrow')} **Planned Actions:**\n`;
-    
-    const actionList = actions.map((action, i) => ({
-      name: action.description,
-      done: false,
-      inProgress: i === 0
-    }));
-    
-    response += VisualFeedback.taskList(actionList);
-    
-    // Execute actions with progress updates
-    const results = [];
-    for (let i = 0; i < actions.length; i++) {
-      // Update progress
-      actionList[i].inProgress = true;
-      
-      const result = await this.executeAction(actions[i]);
-      results.push(result);
-      
-      // Mark as done
-      actionList[i].inProgress = false;
-      actionList[i].done = result.success;
+    // List files
+    if (lowerMsg.match(/list files|show files|cloud files/)) {
+      const files = await this.agent.listCloudFiles();
+      return {
+        text: VisualFeedback.fileList(files, 'Cloud Files'),
+        parse_mode: 'Markdown'
+      };
     }
     
-    // Complete goal
-    await this.agent.completeGoal(goal.id, { actions, results });
+    // Upload file
+    if (lowerMsg.match(/upload|send to cloud/)) {
+      const fileMatch = message.match(/upload\s+(.+?)(?:\s+as\s+(.+))?$/i);
+      if (fileMatch) {
+        const localPath = fileMatch[1];
+        const remoteName = fileMatch[2] || localPath.split('/').pop();
+        
+        try {
+          const result = await this.agent.uploadToCloud(localPath, remoteName);
+          return {
+            text: VisualFeedback.cloudStorage('upload', result.fileName, 
+              this.agent.storage.formatBytes(result.fileSize), 'success'),
+            parse_mode: 'Markdown'
+          };
+        } catch (error) {
+          return {
+            text: VisualFeedback.cloudStorage('upload', remoteName, '', 'error')
+          };
+        }
+      }
+    }
     
-    response = VisualFeedback.autonomousTask(task, 'complete') + '\n\n';
-    response += VisualFeedback.taskList(actionList) + '\n\n';
-    response += VisualFeedback.success(`Results: ${results.filter(r => r.success).length}/${results.length} successful`);
+    // Download file
+    if (lowerMsg.match(/download|get from cloud/)) {
+      const fileMatch = message.match(/download\s+(.+?)(?:\s+to\s+(.+))?$/i);
+      if (fileMatch) {
+        const remoteName = fileMatch[1];
+        const localPath = fileMatch[2] || `/tmp/${remoteName.split('/').pop()}`;
+        
+        try {
+          await this.agent.downloadFromCloud(remoteName, localPath);
+          return {
+            text: VisualFeedback.cloudStorage('download', remoteName, '', 'success'),
+            parse_mode: 'Markdown'
+          };
+        } catch (error) {
+          return {
+            text: VisualFeedback.cloudStorage('download', remoteName, '', 'error')
+          };
+        }
+      }
+    }
     
-    return { text: response, parse_mode: 'Markdown' };
+    return {
+      text: `☁️ Cloud Storage Commands:\n\n` +
+            `• \`list files\` - Show cloud files\n` +
+            `• \`upload <local_path> as <remote_name>\` - Upload file\n` +
+            `• \`download <remote_name> to <local_path>\` - Download file`,
+      parse_mode: 'Markdown'
+    };
   }
 
   async analyzeAndPlan(task) {
@@ -321,18 +361,26 @@ class TelegramAutonomousBridge {
   async handleStatus(userId) {
     const status = await this.agent.getStatus();
     
-    let response = `${VisualFeedback.get('robot')} **Agent Status**\n\n`;
+    let response = `${VisualFeedback.get('robot')} **Super Agent Status**\n\n`;
     response += `${VisualFeedback.get('info')} Session: \`${status.sessionId}\`\n`;
-    response += `${status.initialized ? VisualFeedback.get('success') : VisualFeedback.get('error')} Initialized\n`;
-    response += `${status.selfModificationEnabled ? VisualFeedback.get('success') : VisualFeedback.get('warning')} Self-Modification\n`;
-    response += `${status.autoExecuteEnabled ? VisualFeedback.get('success') : VisualFeedback.get('warning')} Auto-Execute\n\n`;
-    response += `${VisualFeedback.get('analyze')} **Statistics:**\n`;
-    response += `${VisualFeedback.get('memory')} Memories: ${status.stats.memories}\n`;
-    response += `${VisualFeedback.get('command')} Actions: ${status.stats.actions}\n`;
-    response += `${VisualFeedback.get('lightbulb')} Patterns: ${status.stats.patterns}\n`;
-    response += `${VisualFeedback.get('target')} Goals: ${status.stats.goals}\n\n`;
-    response += `${VisualFeedback.get('file')} Memory: ${status.memoryPath}\n`;
-    response += `${VisualFeedback.get('folder')} Workspace: ${status.workspacePath}`;
+    response += `${status.initialized ? VisualFeedback.get('success') : VisualFeedback.get('error')} Initialized\n\n`;
+    
+    response += `${VisualFeedback.get('analyze')} **Awareness:**\n`;
+    response += `${VisualFeedback.get('target')} Tools: ${status.awareness?.tools?.available}/${status.awareness?.tools?.total}\n`;
+    response += `${VisualFeedback.get('cloud')} B2 Configured: ${status.environment?.b2Configured ? '✅' : '❌'}\n`;
+    response += `${VisualFeedback.get('sync')} GitHub Configured: ${status.environment?.githubConfigured ? '✅' : '❌'}\n\n`;
+    
+    response += `${VisualFeedback.get('memory')} **Memory:**\n`;
+    response += `${VisualFeedback.get('file')} Total: ${status.memory?.totalMemories}\n`;
+    response += `${VisualFeedback.get('storage')} Size: ${status.memory?.totalSizeFormatted}\n`;
+    response += `${VisualFeedback.get('sync')} Dirty: ${status.memory?.dirtyCount}\n\n`;
+    
+    if (status.improvement) {
+      response += `${VisualFeedback.get('sparkles')} **Self-Improvement:**\n`;
+      response += `${VisualFeedback.get('lightbulb')} Helpfulness: ${(status.improvement.metrics?.helpfulnessScore * 100).toFixed(0)}%\n`;
+      response += `${VisualFeedback.get('fast')} Efficiency: ${(status.improvement.metrics?.efficiencyScore * 100).toFixed(0)}%\n`;
+      response += `${VisualFeedback.get('success')} Reliability: ${(status.improvement.metrics?.reliabilityScore * 100).toFixed(0)}%\n`;
+    }
     
     return { text: response, parse_mode: 'Markdown' };
   }
