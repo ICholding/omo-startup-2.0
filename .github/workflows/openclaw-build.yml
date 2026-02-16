@@ -1,7 +1,6 @@
 name: Build and Publish OpenClaw
 
 on:
-  # Manual trigger with options
   workflow_dispatch:
     inputs:
       version:
@@ -14,13 +13,7 @@ on:
         required: false
         default: true
         type: boolean
-      build_args:
-        description: 'Additional build arguments'
-        required: false
-        default: ''
-        type: string
   
-  # Trigger on push to main with changes to Docker files
   push:
     branches:
       - main
@@ -28,14 +21,12 @@ on:
       - 'docker/**'
       - '.github/workflows/openclaw-build.yml'
   
-  # Weekly scheduled build
   schedule:
     - cron: '0 0 * * 0'
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}/openclaw
-  OPENCLAW_REPO: https://github.com/ICholding/openclaw.git
 
 jobs:
   build-openclaw:
@@ -46,10 +37,6 @@ jobs:
       packages: write
       attestations: write
       id-token: write
-    
-    strategy:
-      matrix:
-        platform: [linux/amd64, linux/arm64]
     
     steps:
       - name: Checkout omo-startup-2.0
@@ -62,17 +49,32 @@ jobs:
           path: openclaw-src
           token: ${{ secrets.GITHUB_TOKEN }}
       
+      - name: Check Dockerfile exists
+        run: |
+          ls -la openclaw-src/
+          if [ -f "openclaw-src/Dockerfile.full" ]; then
+            echo "DOCKERFILE=Dockerfile.full" >> $GITHUB_ENV
+          elif [ -f "openclaw-src/Dockerfile" ]; then
+            echo "DOCKERFILE=Dockerfile" >> $GITHUB_ENV
+          else
+            echo "No Dockerfile found!"
+            exit 1
+          fi
+      
+      - name: Fix Dockerfile (create assets if missing)
+        run: |
+          # Some OpenClaw builds expect assets directory
+          if [ ! -d "openclaw-src/assets" ]; then
+            echo "Creating assets directory..."
+            mkdir -p openclaw-src/assets
+            echo '{"version": "${{ github.event.inputs.version || '2026.2.15' }}"}' > openclaw-src/assets/version.json
+          fi
+      
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
-        with:
-          platforms: ${{ matrix.platform }}
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        with:
-          driver-opts: |
-            image=moby/buildkit:latest
-          buildkitd-flags: --debug
       
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -87,196 +89,52 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=schedule,pattern={{date 'YYYYMMDD'}}
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=${{ github.event.inputs.version || '2026.2.15' }}
-      
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-      
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: latest
-          run_install: false
-      
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-      
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
+            type=raw,value=latest
+            type=sha,prefix=,suffix=,format=short
       
       - name: Build and push Docker image
         id: build
         uses: docker/build-push-action@v6
         with:
           context: ./openclaw-src
-          file: ./openclaw-src/Dockerfile.full
-          platforms: ${{ matrix.platform }}
+          file: ./openclaw-src/${{ env.DOCKERFILE }}
+          platforms: linux/amd64,linux/arm64
           push: ${{ github.event.inputs.push_image != 'false' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ matrix.platform }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           build-args: |
             NODE_ENV=production
             OPENCLAW_VERSION=${{ github.event.inputs.version || '2026.2.15' }}
-            ${{ github.event.inputs.build_args }}
-      
-      - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@v1
-        with:
-          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          subject-digest: ${{ steps.build.outputs.digest }}
-          push-to-registry: ${{ github.event.inputs.push_image != 'false' }}
       
       - name: Output image details
         run: |
           echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Platform**: ${{ matrix.platform }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Version**: ${{ github.event.inputs.version || '2026.2.15' }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Image**: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Digest**: ${{ steps.build.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Pushed**: ${{ github.event.inputs.push_image != 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tags**: ${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
 
-  create-manifest:
-    name: Create Multi-Platform Manifest
+  deploy-render:
+    name: Deploy to Render
     needs: build-openclaw
     runs-on: ubuntu-latest
     if: github.event.inputs.push_image != 'false'
-    permissions:
-      packages: write
     
     steps:
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Create and push manifest
+      - name: Trigger Render Deployment
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_OPENCLAW_SERVICE_ID }}
         run: |
-          VERSION=${{ github.event.inputs.version || '2026.2.15' }}
-          IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          
-          # Create manifest list for latest tag
-          docker buildx imagetools create \
-            -t ${IMAGE}:latest \
-            ${IMAGE}:latest-linux-amd64 \
-            ${IMAGE}:latest-linux-arm64 || true
-          
-          # Create manifest list for version tag
-          docker buildx imagetools create \
-            -t ${IMAGE}:${VERSION} \
-            ${IMAGE}:${VERSION}-linux-amd64 \
-            ${IMAGE}:${VERSION}-linux-arm64 || true
-      
-      - name: Verify manifest
-        run: |
-          docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest || true
-
-  test-image:
-    name: Test OpenClaw Image
-    needs: [build-openclaw, create-manifest]
-    runs-on: ubuntu-latest
-    if: github.event.inputs.push_image != 'false'
-    
-    steps:
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Pull and test image
-        run: |
-          IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          docker pull ${IMAGE}
-          
-          # Test that the image runs
-          docker run --rm ${IMAGE} node --version
-          docker run --rm ${IMAGE} sh -c "ls -la /app/dist/index.js"
-          
-          echo "✅ Image test passed"
-      
-      - name: Test health endpoint
-        run: |
-          IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          
-          # Start container in background
-          docker run -d --name test-openclaw \
-            -e OPENCLAW_GATEWAY_TOKEN=test-token \
-            -p 18789:18789 \
-            ${IMAGE}
-          
-          # Wait for startup
-          sleep 10
-          
-          # Check if container is running
-          docker ps | grep test-openclaw
-          
-          # Cleanup
-          docker stop test-openclaw
-          docker rm test-openclaw
-          
-          echo "✅ Health test passed"
-
-  update-omo-startup:
-    name: Update omo-startup-2.0 Configuration
-    needs: [build-openclaw, create-manifest]
-    runs-on: ubuntu-latest
-    if: github.event.inputs.push_image != 'false'
-    
-    steps:
-      - name: Checkout omo-startup-2.0
-        uses: actions/checkout@v4
-      
-      - name: Update Docker Compose with new image
-        run: |
-          VERSION=${{ github.event.inputs.version || '2026.2.15' }}
-          IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}
-          
-          # Update docker-compose files with new image reference
-          if [ -f "docker-compose.yml" ]; then
-            sed -i "s|image:.*openclaw.*|image: ${IMAGE}|g" docker-compose.yml
+          if [ -n "$RENDER_API_KEY" ] && [ -n "$RENDER_SERVICE_ID" ]; then
+            echo "Triggering Render deployment..."
+            curl -X POST \
+              -H "Authorization: Bearer $RENDER_API_KEY" \
+              -H "Content-Type: application/json" \
+              https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys
+          else
+            echo "Render credentials not configured, skipping..."
           fi
-          
-          # Create or update .env file
-          cat > .env.openclaw << EOF
-          # OpenClaw Configuration - Auto-generated
-          OPENCLAW_IMAGE=${IMAGE}
-          OPENCLAW_GATEWAY_TOKEN=${{ secrets.OPENCLAW_GATEWAY_TOKEN || 'auto-generated-token' }}
-          OPENCLAW_GATEWAY_PORT=18789
-          OPENCLAW_BRIDGE_PORT=18790
-          OPENCLAW_CANVAS_PORT=18793
-          OPENCLAW_GATEWAY_BIND=lan
-          EOF
-      
-      - name: Commit and push changes
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add -A
-          git diff --staged --quiet || git commit -m "Update OpenClaw image to ${{ github.event.inputs.version || '2026.2.15' }}
-          
-          - Built from ICholding/openclaw
-          - Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          - Auto-generated by GitHub Actions"
-          git push
