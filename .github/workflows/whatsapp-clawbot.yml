@@ -25,19 +25,43 @@ jobs:
       packages: write
     
     steps:
-      - name: Checkout OpenClaw
+      - name: Checkout OpenClaw Repository
         uses: actions/checkout@v4
         with:
           repository: ICholding/openclaw
           token: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Fix .dockerignore (remove assets exclusion)
+      - name: Debug - Check repository structure
         run: |
-          # Remove assets/ exclusion to allow Dockerfile.full to work
-          sed -i '/^assets\/$/d' .dockerignore || true
-          sed -i '/^vendor\/$/d' .dockerignore || true
-          echo "Updated .dockerignore:"
-          cat .dockerignore
+          echo "=== Repository Structure ==="
+          ls -la
+          echo ""
+          echo "=== Checking for Dockerfiles ==="
+          ls -la Dockerfile* 2>/dev/null || echo "No Dockerfile found"
+          echo ""
+          echo "=== Assets directory ==="
+          ls -la assets/ 2>/dev/null || echo "No assets directory"
+          echo ""
+          echo "=== .dockerignore content ==="
+          cat .dockerignore | head -30
+      
+      - name: Fix .dockerignore
+        run: |
+          # Remove problematic exclusions
+          sed -i '/^assets\/$/d' .dockerignore 2>/dev/null || true
+          sed -i '/^vendor\/$/d' .dockerignore 2>/dev/null || true
+          echo ""
+          echo "=== Updated .dockerignore ==="
+          cat .dockerignore | head -30
+      
+      - name: Ensure assets directory exists
+        run: |
+          if [ ! -d "assets" ]; then
+            echo "Creating assets directory..."
+            mkdir -p assets
+            echo '{"version": "${{ github.event.inputs.version }}"}' > assets/version.json
+          fi
+          ls -la assets/
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -60,6 +84,13 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      
+      - name: Build Summary
+        run: |
+          echo "## ✅ WhatsApp ClawBot Build Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: Success" >> $GITHUB_STEP_SUMMARY
 
   deploy-render:
     name: Deploy to Render
@@ -72,31 +103,37 @@ jobs:
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
         run: |
-          echo "Triggering Render deployments..."
+          echo "## 🚀 Deploying to Render..." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           
           # OpenClaw WhatsApp Service
           if [ -n "${{ secrets.RENDER_WHATSAPP_SERVICE_ID }}" ]; then
+            echo "Triggering WhatsApp ClawBot..."
             curl -s -X POST \
               -H "Authorization: Bearer $RENDER_API_KEY" \
               -H "Content-Type: application/json" \
               "https://api.render.com/v1/services/${{ secrets.RENDER_WHATSAPP_SERVICE_ID }}/deploys"
-            echo "✓ WhatsApp ClawBot deployed"
+            echo "✅ WhatsApp ClawBot deployed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ RENDER_WHATSAPP_SERVICE_ID not set" >> $GITHUB_STEP_SUMMARY
           fi
           
           # Backend
           if [ -n "${{ secrets.RENDER_BACKEND_SERVICE_ID }}" ]; then
+            echo "Triggering Backend..."
             curl -s -X POST \
               -H "Authorization: Bearer $RENDER_API_KEY" \
               -H "Content-Type: application/json" \
               "https://api.render.com/v1/services/${{ secrets.RENDER_BACKEND_SERVICE_ID }}/deploys"
-            echo "✓ Backend deployed"
+            echo "✅ Backend deployed" >> $GITHUB_STEP_SUMMARY
           fi
           
           # Frontend
           if [ -n "${{ secrets.RENDER_FRONTEND_SERVICE_ID }}" ]; then
+            echo "Triggering Frontend..."
             curl -s -X POST \
               -H "Authorization: Bearer $RENDER_API_KEY" \
               -H "Content-Type: application/json" \
               "https://api.render.com/v1/services/${{ secrets.RENDER_FRONTEND_SERVICE_ID }}/deploys"
-            echo "✓ Frontend deployed"
+            echo "✅ Frontend deployed" >> $GITHUB_STEP_SUMMARY
           fi
