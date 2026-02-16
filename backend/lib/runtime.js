@@ -3,6 +3,8 @@ const net = require('net');
 
 const { createAdapter } = require('./adapters');
 
+const DEFAULT_INTERNAL_ALLOWLIST = ['localhost', 'openclaw-gateway', 'openclaw-bridge'];
+
 const PRIVATE_IPV4_RANGES = [
   ['10.0.0.0', '10.255.255.255'],
   ['127.0.0.0', '127.255.255.255'],
@@ -92,12 +94,15 @@ class AgentRuntime {
   }
 
   async execute(input) {
-    if (this.provider === 'moltbot') {
+    if (this.provider === 'moltbot' || this.provider === 'openclaw') {
       const allowlist = (process.env.ALLOWED_EGRESS_HOSTS || '')
         .split(',')
         .map((entry) => entry.trim())
         .filter(Boolean);
-      await validateEgressUrl('MOLTBOT_URL', process.env.MOLTBOT_URL, allowlist);
+
+      const effectiveAllowlist = [...new Set([...DEFAULT_INTERNAL_ALLOWLIST, ...allowlist])];
+      const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL || process.env.MOLTBOT_URL;
+      await validateEgressUrl('OPENCLAW_GATEWAY_URL/MOLTBOT_URL', gatewayUrl, effectiveAllowlist);
     }
 
     return this.adapter.execute(input);
