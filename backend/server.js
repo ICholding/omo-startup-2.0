@@ -50,6 +50,7 @@ app.get('/api/health', async (req, res) => {
   res.json({
     status: status.healthy ? 'healthy' : 'degraded',
     provider: status.provider,
+    openclawGatewayUrl: process.env.OPENCLAW_GATEWAY_URL || null,
     moltbotUrl: process.env.MOLTBOT_URL || null,
     timestamp: new Date().toISOString()
   });
@@ -72,6 +73,7 @@ app.post('/api/chat/message', async (req, res) => {
   } catch (error) {
     console.error('[API /api/chat/message] Moltbot execution failed', {
       provider: process.env.AGENT_PROVIDER || 'moltbot',
+      openclawGatewayUrl: process.env.OPENCLAW_GATEWAY_URL || null,
       moltbotUrl: process.env.MOLTBOT_URL || null,
       message: error.message,
       stack: error.stack
@@ -116,6 +118,7 @@ app.get('/api/chat/stream', async (req, res) => {
   } catch (error) {
     console.error('[API /api/chat/stream] Moltbot execution failed', {
       provider: process.env.AGENT_PROVIDER || 'moltbot',
+      openclawGatewayUrl: process.env.OPENCLAW_GATEWAY_URL || null,
       moltbotUrl: process.env.MOLTBOT_URL || null,
       message: error.message,
       stack: error.stack

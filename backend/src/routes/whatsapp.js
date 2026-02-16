@@ -176,7 +176,9 @@ async function generateAIResponse(message, user) {
 async function sendWhatsAppReply(phoneNumber, message, app) {
   const axios = require('axios');
   
-  const bridgeUrl = process.env.WHATSAPP_BRIDGE_URL || 'http://localhost:8081';
+  const bridgeUrl = process.env.OPENCLAW_BRIDGE_URL
+    || process.env.WHATSAPP_BRIDGE_URL
+    || 'http://openclaw-bridge:8081';
   
   try {
     const response = await axios.post(
