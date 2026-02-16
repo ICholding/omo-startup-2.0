@@ -10,12 +10,9 @@ import { useSocket } from '../../hooks/useSocket';
 import { usePageTransition, fadeVariants } from '../../config/animations';
 import { 
   initializeSessions, 
-  getActiveSessionId, 
   setActiveSessionId,
   getSessionById,
   addSession,
-  renameSession,
-  ensureActiveSession 
 } from '../../utils/sessionManager';
 
 const SESSION_ID_KEY = 'omo-session-id';
