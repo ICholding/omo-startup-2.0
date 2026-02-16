@@ -36,7 +36,7 @@ COPY docker/moltbot-pentest/package.json ./
 COPY docker/moltbot-pentest/package-lock.json ./
 
 # Install Node dependencies (native modules need build tools)
-RUN npm install --omit=dev
+RUN npm ci --omit=dev || (echo "npm ci failed (lockfile mismatch). Falling back to npm install --omit=dev" && npm install --omit=dev)
 
 # Copy application code
 COPY docker/moltbot-pentest/server.js ./
