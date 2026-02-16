@@ -5,13 +5,18 @@
   "scripts": {
     "start": "node server.js",
     "start:prod": "node server.js",
-    "validate:source": "node scripts/validate-source.js"
+    "validate:source": "node scripts/validate-source.js",
+    "messaging:start": "node scripts/start-messaging.js",
+    "whatsapp:setup": "node scripts/setup-whatsapp.js",
+    "install:openclaw": "node scripts/install-openclaw.js"
   },
   "dependencies": {
+    "axios": "^1.6.0",
     "cors": "^2.8.6",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "helmet": "^8.1.0",
-    "node-fetch": "^2.7.0"
+    "node-fetch": "^2.7.0",
+    "openclaw": "github:ICholding/openclaw"
   }
 }

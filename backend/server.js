@@ -194,12 +194,83 @@ app.use(async (req, res, next) => {
   }
 });
 
+// WhatsApp ClawBot Integration - Direct OpenClaw
+const MessagingService = require('./lib/messaging-service');
+const whatsappRoutes = require('./src/routes/whatsapp');
+
+app.use('/api/whatsapp', whatsappRoutes);
+
+// Initialize messaging service if enabled
+let messagingService = null;
+
+if (process.env.ENABLE_MESSAGING === 'true') {
+  (async () => {
+    try {
+      messagingService = new MessagingService(app);
+      
+      // Store in app for route access
+      app.set('messagingService', messagingService);
+      app.set('agentRuntime', runtime);
+      
+      await messagingService.initialize();
+      console.log('✓ Messaging service (OpenClaw) initialized');
+    } catch (error) {
+      console.error('✗ Failed to initialize messaging service:', error.message);
+    }
+  })();
+} else {
+  console.log('ℹ Messaging service disabled (set ENABLE_MESSAGING=true to enable)');
+}
+
+// API endpoint for sending messages
+app.post('/api/messaging/send', async (req, res) => {
+  try {
+    if (!messagingService) {
+      return res.status(503).json({ 
+        error: 'Messaging service not initialized',
+        hint: 'Set ENABLE_MESSAGING=true and restart server'
+      });
+    }
+    
+    const { channel, to, message } = req.body;
+    
+    if (!channel || !to || !message) {
+      return res.status(400).json({ 
+        error: 'channel, to, and message are required' 
+      });
+    }
+    
+    const result = await messagingService.sendMessage(channel, to, message);
+    res.json({ status: 'ok', result });
+  } catch (error) {
+    console.error('[Messaging] Send error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get messaging status
+app.get('/api/messaging/status', async (req, res) => {
+  try {
+    if (!messagingService) {
+      return res.json({ 
+        enabled: false,
+        initialized: false 
+      });
+    }
+    
+    const status = await messagingService.getStatus();
+    res.json({
+      enabled: true,
+      ...status
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Start server
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Backend listening on 0.0.0.0:${PORT}`);
 });
 
 module.exports = { app, server };
-
-// WhatsApp ClawBot Integration
-const whatsappRoutes = require('./src/routes/whatsapp');
-app.use('/api/whatsapp', whatsappRoutes);
