@@ -1,8 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import DotsSpinner from '../../../components/ui/DotsSpinner';
 
-const ThinkingIndicator = ({ label = 'Thinking... Please give me a moment.' }) => {
+const ThinkingIndicator = ({ label = 'Working...' }) => {
   return (
     <motion.div
       className="flex items-start gap-3"
@@ -20,9 +19,23 @@ const ThinkingIndicator = ({ label = 'Thinking... Please give me a moment.' }) =
           }}
         >
           <div className="flex items-center gap-3">
-            <DotsSpinner size="sm" variant="default" className="[&>div]:bg-white" />
+            {/* Pixel Thinking Indicator */}
+            <motion.img
+              src="/images/thinking-indicator.png"
+              alt="Thinking..."
+              className="w-8 h-8 object-contain"
+              animate={{ 
+                scale: [1, 1.05, 1],
+                opacity: [0.8, 1, 0.8]
+              }}
+              transition={{ 
+                duration: 1.5, 
+                repeat: Infinity, 
+                ease: 'easeInOut' 
+              }}
+            />
             <motion.span
-              className="text-sm text-white/70"
+              className="text-sm text-white/70 font-medium"
               animate={{ opacity: [0.5, 1, 0.5] }}
               transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
             >

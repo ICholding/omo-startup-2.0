@@ -169,7 +169,7 @@ YOU HAVE THE CAPABILITY. THE TOOL IS YOUR CAPABILITY. USE IT.`;
     ];
 
     try {
-      onEvent?.('execution-start', { state: 'thinking', message: 'Analyzing request...' });
+      onEvent?.('execution-start', { state: 'thinking', message: 'Working... analyzing your request' });
 
       const response = await fetch(this.openrouterUrl, {
         method: 'POST',
@@ -215,7 +215,7 @@ YOU HAVE THE CAPABILITY. THE TOOL IS YOUR CAPABILITY. USE IT.`;
   }
 
   async executeToolCalls(toolCalls, previousMessages, onEvent) {
-    onEvent?.('execution-start', { state: 'working', message: 'Executing...' });
+    onEvent?.('execution-start', { state: 'executing', message: 'Working... running commands' });
     
     const toolResults = [];
     let executionResult = null;

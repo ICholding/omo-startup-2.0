@@ -4,7 +4,7 @@ import { getApiUrl } from '../config/api';
 /**
  * useSocket Hook - SSE-based streaming for OMO Assistant
  * 
- * Provides clean, conversational UI without duplication
+ * Provides pixel thinking indicator with "Working..." status updates
  */
 export const useSocket = (sessionId) => {
   const streamRef = useRef(null);
@@ -15,12 +15,12 @@ export const useSocket = (sessionId) => {
   const [executionState, setExecutionState] = useState('idle');
   const [suggestion, setSuggestion] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
-  const [thinkingMessage, setThinkingMessage] = useState('Thinking...');
+  const [thinkingMessage, setThinkingMessage] = useState('Working...');
   const [executionPackage, setExecutionPackage] = useState(null);
 
   const resetStreamingState = () => {
     setStreamedResponse('');
-    setThinkingMessage('Thinking...');
+    setThinkingMessage('Working...');
     setIsStreaming(true);
     setSuggestion(null);
     setSuggestions([]);
@@ -63,13 +63,33 @@ export const useSocket = (sessionId) => {
 
     stream.addEventListener('execution-start', (event) => {
       const data = JSON.parse(event.data || '{}');
-      setExecutionState('thinking');
-      setThinkingMessage(data?.message || 'Thinking...');
+      const state = data?.state || 'thinking';
+      setExecutionState(state);
+      
+      // Dynamic thinking messages based on state
+      switch (state) {
+        case 'thinking':
+          setThinkingMessage('Working... analyzing your request');
+          break;
+        case 'working':
+          setThinkingMessage('Working... executing task');
+          break;
+        case 'executing':
+          setThinkingMessage('Working... running commands');
+          break;
+        case 'fetching':
+          setThinkingMessage('Working... fetching data');
+          break;
+        case 'processing':
+          setThinkingMessage('Working... processing results');
+          break;
+        default:
+          setThinkingMessage(data?.message || 'Working...');
+      }
     });
 
     stream.addEventListener('response', (event) => {
       const data = JSON.parse(event.data || '{}');
-      // Append to streaming response for live display
       if (data?.message) {
         setStreamedResponse(prev => prev + data.message);
       }
@@ -79,11 +99,9 @@ export const useSocket = (sessionId) => {
       const data = JSON.parse(event.data || '{}');
       setExecutionPackage(data);
       
-      // Use the summary as the final clean response
       const finalResponse = data?.summary || streamedResponse || 'Task completed.';
       setStreamedResponse(finalResponse);
       
-      // Extract suggestions from nextActions
       const nextSuggestions = Array.isArray(data?.nextActions) 
         ? data.nextActions.slice(0, 3) 
         : [];
