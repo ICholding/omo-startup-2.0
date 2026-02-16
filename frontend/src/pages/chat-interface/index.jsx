@@ -8,6 +8,15 @@ import OmoAiSidebar from './components/OmoAiSidebar';
 import ThinkingIndicator from './components/ThinkingIndicator';
 import { useSocket } from '../../hooks/useSocket';
 import { usePageTransition, fadeVariants } from '../../config/animations';
+import { 
+  initializeSessions, 
+  getActiveSessionId, 
+  setActiveSessionId,
+  getSessionById,
+  addSession,
+  renameSession,
+  ensureActiveSession 
+} from '../../utils/sessionManager';
 
 const SESSION_ID_KEY = 'omo-session-id';
 const CHAT_MESSAGES_KEY = 'omo-chat-messages';
@@ -49,16 +58,16 @@ const ChatInterface = () => {
     scrollToBottom();
   }, [messages, streamedResponse]);
 
+  // Initialize session on mount - ensures consistent app state
   useEffect(() => {
-    const storedSessionId = localStorage.getItem(SESSION_ID_KEY);
-    if (storedSessionId) {
-      setSessionId(storedSessionId);
-      return;
+    // Initialize sessions and get or create active session
+    const activeSession = initializeSessions();
+    if (activeSession) {
+      setSessionId(activeSession.id);
+      setActiveSessionTitle(activeSession.name);
+      // Migrate old session ID for backward compatibility
+      localStorage.setItem(SESSION_ID_KEY, activeSession.id);
     }
-
-    const bootstrapSessionId = crypto.randomUUID();
-    setSessionId(bootstrapSessionId);
-    localStorage.setItem(SESSION_ID_KEY, bootstrapSessionId);
   }, []);
 
   useEffect(() => {
@@ -229,43 +238,49 @@ const ChatInterface = () => {
     const nextTitle = typeof sessionInfo === 'string' ? sessionInfo : sessionInfo?.name;
     const nextSessionId = sessionInfo?.id || null;
 
-    setActiveSessionTitle(nextTitle || '');
-
-    if (nextSessionId !== sessionId) {
+    if (nextSessionId && nextSessionId !== sessionId) {
+      // Update active session in manager
+      setActiveSessionId(nextSessionId);
+      
+      // Get session details from manager
+      const session = getSessionById(nextSessionId);
+      const sessionName = session?.name || nextTitle || '';
+      
+      // Update UI state
+      setActiveSessionTitle(sessionName);
+      setSessionId(nextSessionId);
+      
       // Reset chat state for new session
       setMessages([]);
       setConversationState('initial');
-      setSessionId(nextSessionId);
-
-      if (nextSessionId) {
-        localStorage.setItem(SESSION_ID_KEY, nextSessionId);
-      } else {
-        localStorage.removeItem(SESSION_ID_KEY);
-      }
-
-      // Reset agent state for new session
+      
+      // Update legacy storage for backward compatibility
+      localStorage.setItem(SESSION_ID_KEY, nextSessionId);
       localStorage.removeItem(CHAT_MESSAGES_KEY);
-
     }
   };
   
   // Handle creating new session from sidebar
   const handleNewSession = (requestedName = '') => {
-    const newSessionId = crypto.randomUUID();
-    const newSessionName = requestedName?.trim() || '';
+    // Create session using centralized manager
+    const newSession = addSession(requestedName);
+    
+    if (!newSession) return null;
 
     // Reset all chat state
     setMessages([]);
     setConversationState('initial');
-    setSessionId(newSessionId);
-    setActiveSessionTitle(newSessionName);
-    localStorage.setItem(SESSION_ID_KEY, newSessionId);
+    setSessionId(newSession.id);
+    setActiveSessionTitle(newSession.name);
+    
+    // Update legacy storage for backward compatibility
+    localStorage.setItem(SESSION_ID_KEY, newSession.id);
     localStorage.removeItem(CHAT_MESSAGES_KEY);
 
     // Reset agent automation state
     setShowThinkingForCurrentRequest(false);
 
-    return { id: newSessionId, name: newSessionName };
+    return { id: newSession.id, name: newSession.name };
   };
 
 
