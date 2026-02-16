@@ -17,6 +17,6 @@
     "express": "^4.21.2",
     "helmet": "^8.1.0",
     "node-fetch": "^2.7.0",
-    "openclaw": "git+https://github.com/ICholding/openclaw.git"
+    "openclaw": "git+https://github.com/ICholding/openclaw.git#eaca2004204def6e48fe408a1cf07e87c6b7b883"
   }
 }
