@@ -386,7 +386,7 @@ const ChatInterface = () => {
                           <button
                             key={item}
                             onClick={() => handleSuggestionClick(item)}
-                            className="px-3 py-1 text-xs bg-green-500/10 text-green-400 hover:bg-green-500/20 rounded-full transition-colors"
+                            className="px-3 py-1 text-xs bg-gray-700/50 text-gray-300 hover:bg-gray-700 rounded-full transition-colors border border-gray-600"
                           >
                             {item}
                           </button>

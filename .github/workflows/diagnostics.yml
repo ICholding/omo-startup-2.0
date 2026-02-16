@@ -7,6 +7,11 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 jobs:
   diagnose:
     name: Run Diagnostic Agent
@@ -35,9 +40,10 @@ jobs:
           if-no-files-found: warn
       
       - name: Comment on PR
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && github.token != ''
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
             
@@ -72,12 +78,21 @@ jobs:
               });
             }
             
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: body
-            });
+            if (issues.length === 0 && warnings.length === 0) {
+              body += `✅ **No issues found!**\n`;
+            }
+            
+            try {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+              });
+            } catch (error) {
+              console.log('Failed to comment on PR:', error.message);
+              console.log('This is optional - continuing...');
+            }
       
       - name: Fail if errors found
         if: steps.diagnose.outcome == 'failure'
