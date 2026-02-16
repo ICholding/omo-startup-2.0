@@ -1,0 +1,111 @@
+name: OpenClaw - Build & Deploy to Render
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'OpenClaw version'
+        default: '2026.2.15'
+        type: string
+      deploy_to_render:
+        description: 'Trigger Render deployment'
+        default: true
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: icholding/omo-startup-2.0/openclaw
+
+jobs:
+  build-openclaw:
+    name: Build OpenClaw Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+      - name: Checkout OpenClaw
+        uses: actions/checkout@v4
+        with:
+          repository: ICholding/openclaw
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NODE_ENV=production
+      
+      - name: Image digest
+        run: |
+          echo "OpenClaw image built successfully!"
+          echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.version }}"
+
+  deploy-to-render:
+    name: Deploy to Render
+    needs: build-openclaw
+    runs-on: ubuntu-latest
+    if: github.event.inputs.deploy_to_render == true
+    
+    steps:
+      - name: Trigger Render Deployments
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          echo "Triggering Render service deployments..."
+          
+          # Function to trigger deployment
+          trigger_deploy() {
+            local service_id=$1
+            local service_name=$2
+            
+            if [ -n "$service_id" ]; then
+              echo "Triggering $service_name deployment..."
+              curl -s -X POST \
+                -H "Authorization: Bearer $RENDER_API_KEY" \
+                -H "Content-Type: application/json" \
+                "https://api.render.com/v1/services/$service_id/deploys" || echo "Failed to trigger $service_name"
+              echo "✓ $service_name deployment triggered"
+            else
+              echo "⚠ $service_name service ID not configured"
+            fi
+          }
+          
+          # Trigger all three services
+          trigger_deploy "${{ secrets.RENDER_OPENCLAW_SERVICE_ID }}" "OpenClaw Gateway"
+          trigger_deploy "${{ secrets.RENDER_BACKEND_SERVICE_ID }}" "omo-startup-backend"
+          trigger_deploy "${{ secrets.RENDER_FRONTEND_SERVICE_ID }}" "omo-startup"
+          
+          echo ""
+          echo "All Render deployments triggered!"
+      
+      - name: Deployment Summary
+        run: |
+          echo "## 🚀 OpenClaw Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_STEP_SUMMARY
+          echo "- **Version**: ${{ github.event.inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Render Services" >> $GITHUB_STEP_SUMMARY
+          echo "- OpenClaw Gateway: ${{ github.event.inputs.deploy_to_render == true && 'Triggered' || 'Skipped' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- omo-startup-backend: ${{ github.event.inputs.deploy_to_render == true && 'Triggered' || 'Skipped' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- omo-startup (frontend): ${{ github.event.inputs.deploy_to_render == true && 'Triggered' || 'Skipped' }}" >> $GITHUB_STEP_SUMMARY
