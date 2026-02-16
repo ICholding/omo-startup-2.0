@@ -85,7 +85,7 @@ async function callClawbot(userText, chatId, username = 'telegram_user') {
       }
     );
 
-    // Extract response from various formats
+    // Extract response from known formats only.
     const data = res.data;
     if (typeof data === 'string') return data;
     if (data?.message) return data.message;
@@ -93,11 +93,12 @@ async function callClawbot(userText, chatId, username = 'telegram_user') {
     if (data?.response) return data.response;
     if (data?.content) return data.content;
     if (data?.text) return data.text;
-    
-    return JSON.stringify(data);
+
+    console.error('[Telegram] Clawbot returned unrecognized payload:', data);
+    return '⚠️ I could not format the assistant response. Please try again.';
   } catch (error) {
-    console.error('[Telegram] Clawbot call failed:', error.message);
-    return `Sorry, I couldn't process that request. Error: ${error.message}`;
+    console.error('[Telegram] Clawbot call failed:', error.message, error?.response?.data || '');
+    return '⚠️ The AI service is temporarily unavailable. Please try again.';
   }
 }
 
