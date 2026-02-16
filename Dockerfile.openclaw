@@ -1,11 +1,11 @@
 # OpenClaw Agent Dockerfile - ICholding Foundation Edition
-# Includes: SQLite for memory, Backblaze B2 sync, Python tools
+# Phases: 1. GitHub Power-Up | 2. Enhanced Memory | 3. Secure Execution
 
 FROM node:22-alpine
 
 WORKDIR /app
 
-# Install system dependencies for technical execution + database + B2 + build tools
+# Install ALL system dependencies
 RUN apk add --no-cache \
     curl \
     wget \
@@ -19,13 +19,15 @@ RUN apk add --no-cache \
     bash \
     sqlite \
     sqlite-dev \
-    # Build dependencies for native Node modules (sqlite3)
+    # Build dependencies for native Node modules (sqlite3, isolated-vm)
     python3-dev \
     make \
     g++ \
     gcc \
     libc-dev \
     linux-headers \
+    # Docker client libraries
+    docker-cli \
     # B2 CLI tools
     && pip3 install b2 --break-system-packages
 
@@ -33,13 +35,14 @@ RUN apk add --no-cache \
 COPY docker/moltbot-pentest/package.json ./
 COPY docker/moltbot-pentest/package-lock.json ./
 
-# Install Node dependencies (sqlite3 needs build tools)
-# Prefer deterministic installs, but fall back if lockfile drifts from package.json.
-RUN npm ci --omit=dev || (echo "npm ci failed (lockfile mismatch). Falling back to npm install --omit=dev" && npm install --omit=dev)
+# Install Node dependencies (native modules need build tools)
+RUN npm install --omit=dev
 
 # Copy application code
 COPY docker/moltbot-pentest/server.js ./
 COPY docker/moltbot-pentest/memory.js ./
+COPY docker/moltbot-pentest/github.js ./
+COPY docker/moltbot-pentest/executor.js ./
 
 # Create working directories with proper permissions
 RUN mkdir -p /tmp/openclaw-work /app/memory /app/backups && \
