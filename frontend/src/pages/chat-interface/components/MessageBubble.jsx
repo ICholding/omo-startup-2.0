@@ -3,6 +3,7 @@ import { FileText, Download } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { formatTimestamp, formatFileSize, handleFileDownload } from '../../../utils/fileHelpers';
 import MarkdownMessage from '../../../components/ui/MarkdownMessage';
+import { parseResponseContent } from '../../../utils/responseParser';
 
 /**
  * Enhanced MessageBubble Component
@@ -10,6 +11,11 @@ import MarkdownMessage from '../../../components/ui/MarkdownMessage';
  */
 const MessageBubble = ({ message, showAvatar, isAgent, isStreaming = false, executionState = null }) => {
   const isUser = !isAgent;
+  
+  // Parse message content to clean HTTP artifacts
+  const parsedContent = React.useMemo(() => {
+    return parseResponseContent(message?.content);
+  }, [message?.content]);
   
   // Get execution state label
   const getStateLabel = () => {
@@ -52,15 +58,15 @@ const MessageBubble = ({ message, showAvatar, isAgent, isStreaming = false, exec
         {/* Message bubble */}
         <div className={`message-bubble ${isAgent ? 'message-bubble-agent' : 'message-bubble-user'}`}>
           {/* Markdown content for agent messages */}
-          {isAgent && message?.content ? (
+          {isAgent && parsedContent ? (
             <MarkdownMessage 
-              content={message.content} 
+              content={parsedContent} 
               isStreaming={isStreaming}
             />
           ) : (
             /* Plain text for user messages */
             <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap break-words">
-              {message?.content}
+              {parsedContent}
             </p>
           )}
           
