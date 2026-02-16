@@ -8,7 +8,7 @@ class OpenRouterService {
   constructor() {
     this.apiKey = process.env.OPENROUTER_API_KEY;
     this.baseUrl = 'https://openrouter.ai/api/v1';
-    this.model = process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini';
+    this.model = process.env.OPENROUTER_MODEL || 'anthropic/claude-3.5-sonnet';
     
     if (!this.apiKey) {
       console.warn('[OpenRouter] Warning: OPENROUTER_API_KEY not set');
@@ -26,7 +26,7 @@ class OpenRouterService {
     const messages = [
       {
         role: 'system',
-        content: 'You are a helpful AI assistant. Provide conversational, natural responses.'
+        content: 'You are OMO, ICholding\'s AI assistant powered by Claude via OpenRouter. Provide helpful, conversational responses. Do not claim to be GPT-4 or any OpenAI model.'
       },
       ...context,
       { role: 'user', content: message }

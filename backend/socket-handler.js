@@ -157,8 +157,10 @@ class SocketHandler {
   }
 
   selectModelForMode(_message, mode) {
-    if (mode === 'agent') return process.env.AGENT_EXECUTION_MODEL || 'gpt-4.1';
-    return process.env.ASSISTANT_MODEL || 'gpt-4';
+    // Use OpenRouter model from environment, fallback to Claude via OpenRouter
+    const defaultModel = process.env.OPENROUTER_MODEL || 'anthropic/claude-3.5-sonnet';
+    if (mode === 'agent') return process.env.AGENT_EXECUTION_MODEL || defaultModel;
+    return process.env.ASSISTANT_MODEL || defaultModel;
   }
 
   async generateFinalResponse({ message, context, modeContext }) {

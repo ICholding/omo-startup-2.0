@@ -127,9 +127,9 @@ FEATURE_REALTIME_SCANNING=true
 FEATURE_EXPLOIT_VALIDATION=true
 FEATURE_REPORT_GENERATION=true
 
-# Optional OpenRouter Assistant Mode (GPT via OpenRouter)
+# Optional OpenRouter Assistant Mode (Claude via OpenRouter)
 OPENROUTER_API_KEY=your-openrouter-key
-OPENROUTER_MODEL=openai/gpt-4o-mini
+OPENROUTER_MODEL=anthropic/claude-3.5-sonnet
 OPENROUTER_MAX_CONTEXT_MESSAGES=12
 ```
 
@@ -137,7 +137,7 @@ OPENROUTER_MAX_CONTEXT_MESSAGES=12
 
 ### Optional: OpenRouter assistant responses in chat
 
-When `OPENROUTER_API_KEY` is set, chat responses are generated through OpenRouter (for example using GPT-4 class models). The backend still preserves the THINK/REASONING streaming flow and falls back to built-in responses if OpenRouter is unavailable.
+When `OPENROUTER_API_KEY` is set, chat responses are generated through OpenRouter (using Claude or your chosen model). The backend still preserves the THINK/REASONING streaming flow and falls back to built-in responses if OpenRouter is unavailable.
 
 ### Execute Security Task
 
