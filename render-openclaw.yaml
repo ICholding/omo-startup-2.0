@@ -7,7 +7,9 @@ services:
     runtime: docker
     repo: https://github.com/ICholding/openclaw
     branch: main
-    dockerfilePath: ./Dockerfile.full
+    # The upstream OpenClaw repo now builds from Dockerfile; Dockerfile.full
+    # references /build/assets and fails during image assembly.
+    dockerfilePath: ./Dockerfile
     dockerContext: .
     envVars:
       - key: NODE_ENV
