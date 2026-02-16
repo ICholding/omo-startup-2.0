@@ -313,8 +313,8 @@ const ChatInterface = () => {
             />
 
             <AuiProvider>
-              <main className="flex-1 overflow-hidden flex flex-col pt-14 pb-4">
-                <div className="flex-1 overflow-y-auto px-2 sm:px-4">
+              <main className="flex-1 overflow-hidden flex flex-col pt-14">
+                <div className="flex-1 overflow-y-auto px-2 sm:px-4 pb-28 sm:pb-32">
                   <ExternalThread
                     messages={threadMessages}
                     isRunning={isStreaming && !isPaused}

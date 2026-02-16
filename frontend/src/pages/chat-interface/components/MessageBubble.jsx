@@ -41,7 +41,7 @@ const MessageBubble = ({ message, showAvatar, isAgent, isStreaming = false, exec
       transition={{ duration: 0.3 }}
     >
       {/* Message container */}
-      <div className={`flex flex-col ${isUser ? 'items-end ml-auto' : 'items-start'} max-w-[90%] sm:max-w-[85%] md:max-w-2xl`}>
+      <div className={`flex flex-col ${isUser ? 'items-end ml-auto max-w-[80%]' : 'items-start mr-auto max-w-[85%] sm:max-w-[80%]'}`}>
         {/* Execution state indicator */}
         {isAgent && executionState && (
           <motion.div
@@ -56,16 +56,18 @@ const MessageBubble = ({ message, showAvatar, isAgent, isStreaming = false, exec
         )}
         
         {/* Message bubble */}
-        <div className={`message-bubble ${isAgent ? 'message-bubble-agent' : 'message-bubble-user'}`}>
+        <div className={`message-bubble overflow-hidden ${isAgent ? 'message-bubble-agent' : 'message-bubble-user'}`}>
           {/* Markdown content for agent messages */}
           {isAgent && parsedContent ? (
-            <MarkdownMessage 
-              content={parsedContent} 
-              isStreaming={isStreaming}
-            />
+            <div className="break-words overflow-wrap-anywhere">
+              <MarkdownMessage 
+                content={parsedContent} 
+                isStreaming={isStreaming}
+              />
+            </div>
           ) : (
             /* Plain text for user messages */
-            <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap break-words">
+            <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap break-words overflow-hidden">
               {parsedContent}
             </p>
           )}
