@@ -96,44 +96,47 @@ jobs:
     name: Deploy to Render
     needs: build
     runs-on: ubuntu-latest
-    if: github.event.inputs.deploy_to_render == true
+    if: ${{ github.event.inputs.deploy_to_render == 'true' }}
     
     steps:
       - name: Trigger Render Deployments
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          WHATSAPP_SERVICE_ID: ${{ secrets.RENDER_WHATSAPP_SERVICE_ID }}
+          BACKEND_SERVICE_ID: ${{ secrets.RENDER_BACKEND_SERVICE_ID }}
+          FRONTEND_SERVICE_ID: ${{ secrets.RENDER_FRONTEND_SERVICE_ID }}
         run: |
           echo "## 🚀 Deploying to Render..." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # OpenClaw WhatsApp Service
-          if [ -n "${{ secrets.RENDER_WHATSAPP_SERVICE_ID }}" ]; then
+          if [ -n "$WHATSAPP_SERVICE_ID" ]; then
             echo "Triggering WhatsApp ClawBot..."
             curl -s -X POST \
               -H "Authorization: Bearer $RENDER_API_KEY" \
               -H "Content-Type: application/json" \
-              "https://api.render.com/v1/services/${{ secrets.RENDER_WHATSAPP_SERVICE_ID }}/deploys"
+              "https://api.render.com/v1/services/$WHATSAPP_SERVICE_ID/deploys"
             echo "✅ WhatsApp ClawBot deployed" >> $GITHUB_STEP_SUMMARY
           else
             echo "⚠️ RENDER_WHATSAPP_SERVICE_ID not set" >> $GITHUB_STEP_SUMMARY
           fi
           
           # Backend
-          if [ -n "${{ secrets.RENDER_BACKEND_SERVICE_ID }}" ]; then
+          if [ -n "$BACKEND_SERVICE_ID" ]; then
             echo "Triggering Backend..."
             curl -s -X POST \
               -H "Authorization: Bearer $RENDER_API_KEY" \
               -H "Content-Type: application/json" \
-              "https://api.render.com/v1/services/${{ secrets.RENDER_BACKEND_SERVICE_ID }}/deploys"
+              "https://api.render.com/v1/services/$BACKEND_SERVICE_ID/deploys"
             echo "✅ Backend deployed" >> $GITHUB_STEP_SUMMARY
           fi
           
           # Frontend
-          if [ -n "${{ secrets.RENDER_FRONTEND_SERVICE_ID }}" ]; then
+          if [ -n "$FRONTEND_SERVICE_ID" ]; then
             echo "Triggering Frontend..."
             curl -s -X POST \
               -H "Authorization: Bearer $RENDER_API_KEY" \
               -H "Content-Type: application/json" \
-              "https://api.render.com/v1/services/${{ secrets.RENDER_FRONTEND_SERVICE_ID }}/deploys"
+              "https://api.render.com/v1/services/$FRONTEND_SERVICE_ID/deploys"
             echo "✅ Frontend deployed" >> $GITHUB_STEP_SUMMARY
           fi
