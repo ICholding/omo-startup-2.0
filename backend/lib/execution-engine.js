@@ -54,6 +54,8 @@ class ExecutionEngine {
       case 'pentest_scan':
       case 'security_scan':
         return this.pentestScan(command, parameters);
+      case 'web_search':
+        return this.webSearch(command, parameters);
       default:
         return { 
           status: 'error', 
@@ -367,6 +369,115 @@ class ExecutionEngine {
       }
     } catch (err) {
       return { status: 'error', error: err.message };
+    }
+  }
+
+  /**
+   * Web Search - Search the internet for information
+   */
+  async webSearch(query, options = {}) {
+    const serpApiKey = process.env.SERPAPI_KEY;
+    
+    if (!serpApiKey) {
+      // Fallback: Use DuckDuckGo HTML scraping
+      return this.fallbackWebSearch(query, options);
+    }
+    
+    try {
+      const params = new URLSearchParams({
+        q: query,
+        api_key: serpApiKey,
+        engine: 'google',
+        num: options.limit || 10
+      });
+      
+      const response = await this.networkRequest(
+        `https://serpapi.com/search?${params.toString()}`,
+        { timeout: 30000 }
+      );
+      
+      if (response.status === 'success') {
+        const data = JSON.parse(response.body);
+        return {
+          status: 'success',
+          query: query,
+          results: data.organic_results?.map(r => ({
+            title: r.title,
+            link: r.link,
+            snippet: r.snippet,
+            displayed_link: r.displayed_link
+          })) || [],
+          answer_box: data.answer_box,
+          related_questions: data.related_questions,
+          summary: `Found ${data.organic_results?.length || 0} results for "${query}"`
+        };
+      }
+      
+      return { status: 'error', error: 'Search API failed' };
+    } catch (error) {
+      return { status: 'error', error: error.message };
+    }
+  }
+
+  /**
+   * Fallback web search using DuckDuckGo
+   */
+  async fallbackWebSearch(query, options = {}) {
+    try {
+      const encodedQuery = encodeURIComponent(query);
+      const url = `https://html.duckduckgo.com/html/?q=${encodedQuery}`;
+      
+      const response = await this.networkRequest(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        },
+        timeout: 30000
+      });
+      
+      if (response.status !== 'success') {
+        return { status: 'error', error: 'Search failed' };
+      }
+      
+      // Simple regex parsing for results
+      const results = [];
+      const titleRegex = /<a[^>]*class="result__a"[^>]*>(.*?)<\/a>/g;
+      const snippetRegex = /<a[^>]*class="result__snippet"[^>]*>(.*?)<\/a>/g;
+      const urlRegex = /<a[^>]*class="result__url"[^>]*href="([^"]*)"/g;
+      
+      let match;
+      const titles = [];
+      const snippets = [];
+      const urls = [];
+      
+      while ((match = titleRegex.exec(response.body)) !== null) {
+        titles.push(match[1].replace(/<[^>]+>/g, ''));
+      }
+      
+      while ((match = snippetRegex.exec(response.body)) !== null) {
+        snippets.push(match[1].replace(/<[^>]+>/g, ''));
+      }
+      
+      while ((match = urlRegex.exec(response.body)) !== null) {
+        urls.push(match[1]);
+      }
+      
+      for (let i = 0; i < Math.min(titles.length, 10); i++) {
+        results.push({
+          title: titles[i] || 'No title',
+          snippet: snippets[i] || 'No description',
+          link: urls[i] || ''
+        });
+      }
+      
+      return {
+        status: 'success',
+        query: query,
+        results: results,
+        source: 'duckduckgo',
+        summary: `Found ${results.length} results for "${query}"`
+      };
+    } catch (error) {
+      return { status: 'error', error: error.message };
     }
   }
 }

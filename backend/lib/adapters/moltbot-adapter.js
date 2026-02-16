@@ -45,7 +45,8 @@ class MoltbotAdapter {
                   'system_command',
                   'github_operation',
                   'data_processing',
-                  'pentest_scan'
+                  'pentest_scan',
+                  'web_search'
                 ],
                 description: 'REQUIRED: Select the appropriate category for the task'
               },
@@ -95,7 +96,7 @@ class MoltbotAdapter {
    - "Scan this domain" -> CALL THE TOOL
 
 4. HOW TO USE THE TOOL
-   task_type: Select from [network_request, code_execution, file_operation, system_command, github_operation, data_processing, pentest_scan]
+   task_type: Select from [network_request, code_execution, file_operation, system_command, github_operation, data_processing, pentest_scan, web_search]
    command: The actual operation (URL, code, path, command, scan type)
    parameters: Additional options (target, method, headers, language, etc.)
    reason: Why you are doing this
@@ -305,6 +306,13 @@ YOU HAVE THE CAPABILITY. THE TOOL IS YOUR CAPABILITY. USE IT.`;
       return result.content;
     }
     
+    if (result.results && Array.isArray(result.results)) {
+      // Web search results
+      return result.results.map((r, i) => 
+        `${i + 1}. ${r.title}\n   ${r.link}\n   ${r.snippet}`
+      ).join('\n\n');
+    }
+    
     // Default: stringify the whole result
     return JSON.stringify(result, null, 2);
   }
@@ -320,6 +328,7 @@ Based on the request, choose:
 - github_operation: if asking about repositories or code
 - system_command: if needing shell commands
 - pentest_scan: if checking security
+- web_search: if searching for information, news, or research
 - file_operation: if reading/writing files
 - data_processing: if converting formats
 
