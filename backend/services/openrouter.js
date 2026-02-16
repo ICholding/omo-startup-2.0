@@ -1,70 +1,90 @@
-const fetch = require('node-fetch');
+const axios = require('axios');
 
-/**
- * OpenRouter Service
- * Provides conversational AI responses using OpenRouter API
- */
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 class OpenRouterService {
   constructor() {
     this.apiKey = process.env.OPENROUTER_API_KEY;
-    this.baseUrl = 'https://openrouter.ai/api/v1';
-    this.model = process.env.OPENROUTER_MODEL || 'anthropic/claude-3.5-sonnet';
-    
+    this.baseUrl = process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1';
+    this.primaryModel = process.env.PRIMARY_MODEL || process.env.OPENROUTER_MODEL || 'x-ai/grok-code-fast-1';
+    this.fallbackModel = process.env.FALLBACK_MODEL || 'openai/gpt-4o-mini';
+
     if (!this.apiKey) {
       console.warn('[OpenRouter] Warning: OPENROUTER_API_KEY not set');
     }
   }
 
-  async generateResponse(message, context = [], modeContext = {}) {
+  async chatOpenRouter({ model, messages, timeoutMs = 60000 }) {
     if (!this.apiKey) {
-      throw new Error('OPENROUTER_API_KEY not configured');
+      throw new Error('Missing OPENROUTER_API_KEY');
     }
 
-    const model = modeContext.model || this.model;
-    
-    // Build messages array from context
+    const response = await axios.post(
+      `${this.baseUrl}/chat/completions`,
+      { model, messages },
+      {
+        timeout: timeoutMs,
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': process.env.SITE_URL || process.env.OPENROUTER_REFERER || '',
+          'X-Title': process.env.APP_NAME || 'OMO Clawbot'
+        }
+      }
+    );
+
+    const content = response?.data?.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new Error('Empty model response');
+    }
+
+    return content;
+  }
+
+  async generateResponse(message, context = [], modeContext = {}) {
+    const primaryModel = modeContext.model || this.primaryModel;
     const messages = [
       {
         role: 'system',
-        content: 'You are OMO, ICholding\'s AI assistant powered by Claude via OpenRouter. Provide helpful, conversational responses. Do not claim to be GPT-4 or any OpenAI model.'
+        content:
+          'You are Clawbot, a concise and helpful AI assistant. Provide direct answers and avoid exposing backend internals.'
       },
       ...context,
       { role: 'user', content: message }
     ];
 
-    try {
-      const response = await fetch(`${this.baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': process.env.OPENROUTER_REFERER || 'https://omo-startup.onrender.com',
-          'X-Title': 'OMO Startup Assistant'
-        },
-        body: JSON.stringify({
-          model: model,
-          messages: messages,
-          temperature: 0.7,
-          max_tokens: 2000
-        })
-      });
+    const attempts = [
+      { model: primaryModel, retries: 2 },
+      { model: this.fallbackModel, retries: 1 }
+    ];
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(`OpenRouter API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+    let lastError = null;
+
+    for (const attempt of attempts) {
+      for (let i = 0; i <= attempt.retries; i += 1) {
+        try {
+          return await this.chatOpenRouter({
+            model: attempt.model,
+            messages,
+            timeoutMs: parseInt(process.env.OPENROUTER_TIMEOUT_MS, 10) || 60000
+          });
+        } catch (error) {
+          lastError = error;
+          const status = error?.response?.status;
+          console.error(
+            `[OpenRouter] model=${attempt.model} attempt=${i + 1} failed`,
+            status,
+            error?.response?.data || error?.message
+          );
+          await sleep(400 * (i + 1));
+        }
       }
-
-      const data = await response.json();
-      
-      if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-        throw new Error('Invalid response from OpenRouter API');
-      }
-
-      return data.choices[0].message.content;
-    } catch (error) {
-      console.error('[OpenRouter] Error:', error.message);
-      throw error;
     }
+
+    console.error('[OpenRouter] All model attempts failed:', lastError?.message || 'Unknown error');
+    return '⚠️ The AI service is temporarily unavailable. Please try again.';
   }
 }
 

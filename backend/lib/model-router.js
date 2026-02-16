@@ -12,7 +12,7 @@ class ModelRouter {
     // OpenRouter model identifiers
     this.models = {
       chat: process.env.OPENROUTER_MODEL_CHAT || 'anthropic/claude-3.5-sonnet',
-      agent: process.env.OPENROUTER_MODEL_AGENT || 'xai/grok-beta',
+      agent: process.env.OPENROUTER_MODEL_AGENT || 'x-ai/grok-code-fast-1',
       code: process.env.OPENROUTER_MODEL_CODE || 'openai/gpt-4o',
       default: process.env.OPENROUTER_MODEL || 'anthropic/claude-3.5-sonnet'
     };
