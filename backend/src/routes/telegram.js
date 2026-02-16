@@ -25,16 +25,44 @@ let agentState = {
  * Poll agent connection status
  */
 async function pollAgentConnection() {
-  try {
-    const response = await axios.get(`${CLAWBOT_URL}/health`, {
-      timeout: 5000
-    });
-    
-    agentState.connected = response.data?.healthy || false;
-    agentState.status = response.data?.status || 'unknown';
+  const baseUrl = String(CLAWBOT_URL || '').replace(/\/+$/, '');
+  const healthEndpoints = [`${baseUrl}/api/health`, `${baseUrl}/health`];
+
+  if (!baseUrl) {
+    agentState.connected = false;
+    agentState.status = 'not_configured';
     agentState.lastCheck = Date.now();
-    
-    return agentState.connected;
+    return false;
+  }
+
+  try {
+    for (const endpoint of healthEndpoints) {
+      try {
+        const response = await axios.get(endpoint, {
+          timeout: 5000
+        });
+
+        if (response.status < 200 || response.status >= 300) {
+          continue;
+        }
+
+        const healthy = typeof response.data?.healthy === 'boolean'
+          ? response.data.healthy
+          : response.data?.status === 'healthy';
+
+        agentState.connected = healthy;
+        agentState.status = response.data?.status || (healthy ? 'healthy' : 'degraded');
+        agentState.lastCheck = Date.now();
+
+        return agentState.connected;
+      } catch (endpointError) {
+        if (endpointError.response?.status !== 404) {
+          throw endpointError;
+        }
+      }
+    }
+
+    throw new Error('No compatible health endpoint found');
   } catch (error) {
     agentState.connected = false;
     agentState.status = 'disconnected';
