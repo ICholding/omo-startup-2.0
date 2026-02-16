@@ -218,6 +218,7 @@ YOU HAVE THE CAPABILITY. THE TOOL IS YOUR CAPABILITY. USE IT.`;
     onEvent?.('execution-start', { state: 'working', message: 'Executing...' });
     
     const toolResults = [];
+    let executionResult = null;
     
     for (const toolCall of toolCalls) {
       if (toolCall.function?.name === 'execute_technical_task') {
@@ -226,6 +227,7 @@ YOU HAVE THE CAPABILITY. THE TOOL IS YOUR CAPABILITY. USE IT.`;
           console.log('[Adapter] Executing:', args.task_type, args.command);
           
           const result = await this.executionEngine.execute(args);
+          executionResult = result;
           toolResults.push({
             role: 'tool',
             tool_call_id: toolCall.id,
@@ -241,6 +243,13 @@ YOU HAVE THE CAPABILITY. THE TOOL IS YOUR CAPABILITY. USE IT.`;
       }
     }
 
+    // If we have a successful execution result, show it directly
+    if (executionResult && executionResult.status === 'success') {
+      const resultSummary = this.formatExecutionResult(executionResult);
+      return this.emitResponse(resultSummary, onEvent);
+    }
+
+    // Otherwise, get AI to summarize the results
     const finalMessages = [...previousMessages, toolCalls[0], ...toolResults];
     
     const finalResponse = await fetch(this.openrouterUrl, {
@@ -262,6 +271,42 @@ YOU HAVE THE CAPABILITY. THE TOOL IS YOUR CAPABILITY. USE IT.`;
     const content = finalData.choices?.[0]?.message?.content || 'Task completed.';
     
     return this.emitResponse(content, onEvent);
+  }
+
+  formatExecutionResult(result) {
+    // Format different result types for display
+    if (result.body && typeof result.body === 'string') {
+      // HTTP response
+      try {
+        const parsed = JSON.parse(result.body);
+        return JSON.stringify(parsed, null, 2);
+      } catch {
+        return result.body.substring(0, 2000);
+      }
+    }
+    
+    if (result.result !== undefined) {
+      // Code execution
+      return String(result.result);
+    }
+    
+    if (result.output !== undefined) {
+      // System command
+      return result.output;
+    }
+    
+    if (result.files && Array.isArray(result.files)) {
+      // GitHub file list
+      return result.files.map(f => f.name || f).join('\n');
+    }
+    
+    if (result.content !== undefined) {
+      // File content
+      return result.content;
+    }
+    
+    // Default: stringify the whole result
+    return JSON.stringify(result, null, 2);
   }
 
   async forceToolUsage(originalMessage, previousMessages, onEvent) {
