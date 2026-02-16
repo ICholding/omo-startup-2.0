@@ -1,0 +1,64 @@
+# Render Blueprint for WhatsApp ClawBot Integration
+# Deploys OpenClaw with WhatsApp-focused configuration
+
+services:
+  - type: web
+    name: omo-whatsapp-clawbot
+    runtime: docker
+    repo: https://github.com/ICholding/openclaw
+    branch: main
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOME
+        value: /home/openclaw
+      - key: OPENCLAW_GATEWAY_TOKEN
+        generateValue: true
+      - key: OPENCLAW_GATEWAY_BIND
+        value: 0.0.0.0
+      - key: OPENCLAW_GATEWAY_PORT
+        value: 18789
+      - key: WHATSAPP_ENABLED
+        value: "true"
+      - key: TELEGRAM_ENABLED
+        value: "false"
+      - key: DISCORD_ENABLED
+        value: "false"
+      - key: SLACK_ENABLED
+        value: "false"
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OMO_BACKEND_URL
+        value: https://omo-startup-backend.onrender.com
+    healthCheckPath: /health
+    autoDeploy: true
+    plan: standard
+    disk:
+      name: whatsapp-data
+      mountPath: /home/openclaw/.openclaw
+      sizeGB: 2
+
+  # Webhook bridge service
+  - type: web
+    name: omo-whatsapp-bridge
+    runtime: docker
+    repo: https://github.com/ICholding/omo-startup-2.0
+    branch: main
+    dockerContext: ./whatsapp-integration
+    dockerfilePath: ./whatsapp-integration/Dockerfile.bridge
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8081
+      - key: OPENCLAW_GATEWAY_URL
+        value: https://omo-whatsapp-clawbot.onrender.com
+      - key: OMO_BACKEND_URL
+        value: https://omo-startup-backend.onrender.com
+      - key: WEBHOOK_SECRET
+        generateValue: true
+    healthCheckPath: /health
+    autoDeploy: true
