@@ -1,6 +1,6 @@
 /**
- * Telegram Bot Integration for Clawbot
- * Fast webhook-based messaging without WhatsApp Business verification
+ * Telegram Bot Integration for OpenClaw
+ * Fast webhook-based messaging with agent connection polling
  */
 
 const express = require('express');
@@ -12,7 +12,43 @@ const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
 // OpenClaw service URL (new name for clawbot)
 const CLAWBOT_URL = process.env.OPENCLAW_API_URL || process.env.CLAWBOT_API_URL || process.env.MOLTBOT_URL || 'https://omo-startup-openclaw.onrender.com';
-const CLAWBOT_KEY = process.env.CLAWBOT_API_KEY;
+const CLAWBOT_KEY = process.env.CLAWBOT_API_KEY || process.env.API_KEY;
+
+// Agent connection state
+let agentState = {
+  connected: false,
+  lastCheck: 0,
+  status: 'unknown'
+};
+
+/**
+ * Poll agent connection status
+ */
+async function pollAgentConnection() {
+  try {
+    const response = await axios.get(`${CLAWBOT_URL}/health`, {
+      timeout: 5000
+    });
+    
+    agentState.connected = response.data?.healthy || false;
+    agentState.status = response.data?.status || 'unknown';
+    agentState.lastCheck = Date.now();
+    
+    return agentState.connected;
+  } catch (error) {
+    agentState.connected = false;
+    agentState.status = 'disconnected';
+    agentState.lastCheck = Date.now();
+    console.error('[Telegram] Agent polling failed:', error.message);
+    return false;
+  }
+}
+
+// Poll every 30 seconds
+setInterval(pollAgentConnection, 30000);
+
+// Initial poll
+pollAgentConnection();
 // Access control disabled - bot is open to all users
 // To restrict access, set TELEGRAM_ALLOWED_CHAT_IDS in environment
 const ALLOWED_CHAT_IDS = [];
@@ -31,10 +67,13 @@ async function callClawbot(userText, chatId, username = 'telegram_user') {
       headers.Authorization = `Bearer ${CLAWBOT_KEY}`;
     }
 
+    const chatEndpoint = CLAWBOT_URL.endsWith('/api/chat/message') ? CLAWBOT_URL : `${CLAWBOT_URL}/api/chat/message`;
+    
     const res = await axios.post(
-      CLAWBOT_URL,
+      chatEndpoint,
       {
         message: userText,
+        sessionId: `telegram_${chatId}`,
         from: String(chatId),
         username,
         channel: 'telegram',
@@ -178,6 +217,12 @@ router.get('/status', (req, res) => {
   res.json({
     enabled: !!TOKEN,
     configured: !!CLAWBOT_URL,
+    agent: {
+      connected: agentState.connected,
+      status: agentState.status,
+      lastCheck: agentState.lastCheck,
+      url: CLAWBOT_URL
+    },
     allowedChats: ALLOWED_CHAT_IDS.length
   });
 });

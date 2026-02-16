@@ -1,0 +1,63 @@
+# Render Configuration for OpenClaw Agent Service
+services:
+  - type: web
+    name: omo-startup-openclaw
+    runtime: docker
+    repo: https://github.com/ICholding/omo-startup-2.0
+    branch: main
+    dockerfilePath: ./agent/Dockerfile
+    dockerContext: ./agent
+    region: oregon
+    plan: starter
+    
+    envVars:
+      - key: NODE_ENV
+        value: production
+      
+      - key: PORT
+        value: 8080
+      
+      # OpenRouter Configuration
+      - key: OPENROUTER_API_KEY
+        sync: false  # Set manually in dashboard
+      
+      - key: OPENROUTER_API_URL
+        value: https://openrouter.ai/api/v1
+      
+      - key: OPENROUTER_MODEL
+        value: claude-3.5-sonnet
+      
+      # Agent Identity
+      - key: AGENT_ID
+        value: openclaw-agent
+      
+      # API Key for client authentication (optional but recommended)
+      - key: API_KEY
+        generateValue: true
+      
+      # Backend connection
+      - key: OMO_BACKEND_URL
+        value: https://omo-startup-backend.onrender.com
+      
+      # GitHub Integration (optional)
+      - key: GITHUB_TOKEN
+        sync: false
+      
+      - key: GITHUB_OWNER
+        value: ICholding
+      
+      - key: GITHUB_REPO
+        value: omo-startup-2.0
+      
+      # Backblaze B2 (optional)
+      - key: B2_APPLICATION_KEY_ID
+        sync: false
+      
+      - key: B2_APPLICATION_KEY
+        sync: false
+      
+      - key: B2_BUCKET_NAME
+        value: omo-LLM
+    
+    healthCheckPath: /health
+    autoDeploy: true
