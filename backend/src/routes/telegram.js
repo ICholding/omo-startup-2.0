@@ -11,7 +11,7 @@ const router = express.Router();
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
 // OpenClaw service URL (new name for clawbot)
-const CLAWBOT_URL = process.env.OPENCLAW_API_URL || process.env.CLAWBOT_API_URL || process.env.MOLTBOT_URL || 'https://omo-startup-openclaw.onrender.com';
+const CLAWBOT_URL = process.env.OPENCLAW_API_URL || process.env.CLAWBOT_API_URL || process.env.MOLTBOT_URL || 'https://omo-startup-openclaw-hbdn.onrender.com';
 const CLAWBOT_KEY = process.env.CLAWBOT_API_KEY || process.env.API_KEY;
 
 // Agent connection state
