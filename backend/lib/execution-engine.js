@@ -18,6 +18,7 @@ const vm = require('vm');
 const fs = require('fs').promises;
 const path = require('path');
 const pentestTools = require('./tools/pentest-tools');
+const e2bExecutor = require('./e2b-executor');
 
 class ExecutionEngine {
   constructor() {
@@ -56,6 +57,10 @@ class ExecutionEngine {
         return this.pentestScan(command, parameters);
       case 'web_search':
         return this.webSearch(command, parameters);
+      case 'e2b_code':
+        return this.e2bCodeExecution(command, parameters);
+      case 'e2b_command':
+        return this.e2bCommandExecution(command, parameters);
       default:
         return { 
           status: 'error', 
@@ -370,6 +375,28 @@ class ExecutionEngine {
     } catch (err) {
       return { status: 'error', error: err.message };
     }
+  }
+
+  /**
+   * E2B Code Execution - Secure cloud sandbox
+   */
+  async e2bCodeExecution(code, options = {}) {
+    if (!e2bExecutor.isAvailable()) {
+      // Fallback to local execution
+      return this.codeExecution(code, options);
+    }
+    return await e2bExecutor.executeCode(code, options.language, options.timeout);
+  }
+
+  /**
+   * E2B Command Execution - Secure cloud sandbox for commands
+   */
+  async e2bCommandExecution(command, options = {}) {
+    if (!e2bExecutor.isAvailable()) {
+      // Fallback to local execution
+      return this.systemCommand(command, options);
+    }
+    return await e2bExecutor.executeCommand(command, options.timeout);
   }
 
   /**
