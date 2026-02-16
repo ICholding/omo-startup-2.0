@@ -173,27 +173,6 @@ app.post('/api/execute', async (req, res) => {
   }
 });
 
-app.use(express.static(FRONTEND_BUILD_PATH));
-
-app.use(async (req, res, next) => {
-  if (req.originalUrl.startsWith('/api/')) {
-    return res.status(404).json({ error: 'API endpoint not found', path: req.originalUrl });
-  }
-
-  if (req.method !== 'GET' && req.method !== 'HEAD') {
-    return next();
-  }
-
-  const indexPath = path.join(FRONTEND_BUILD_PATH, 'index.html');
-
-  try {
-    await fs.access(indexPath);
-    return res.sendFile(indexPath);
-  } catch {
-    return res.status(503).json({ error: 'Frontend is unavailable' });
-  }
-});
-
 // WhatsApp ClawBot Integration - Direct OpenClaw
 const MessagingService = require('./lib/messaging-service');
 const whatsappRoutes = require('./src/routes/whatsapp');
@@ -265,6 +244,28 @@ app.get('/api/messaging/status', async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+
+app.use(express.static(FRONTEND_BUILD_PATH));
+
+app.use(async (req, res, next) => {
+  if (req.originalUrl.startsWith('/api/')) {
+    return res.status(404).json({ error: 'API endpoint not found', path: req.originalUrl });
+  }
+
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    return next();
+  }
+
+  const indexPath = path.join(FRONTEND_BUILD_PATH, 'index.html');
+
+  try {
+    await fs.access(indexPath);
+    return res.sendFile(indexPath);
+  } catch {
+    return res.status(503).json({ error: 'Frontend is unavailable' });
   }
 });
 
