@@ -17,6 +17,7 @@ const http = require('http');
 const vm = require('vm');
 const fs = require('fs').promises;
 const path = require('path');
+const pentestTools = require('./tools/pentest-tools');
 
 class ExecutionEngine {
   constructor() {
@@ -50,6 +51,9 @@ class ExecutionEngine {
         return this.githubOperation(command, parameters);
       case 'data_processing':
         return this.dataProcessing(command, parameters);
+      case 'pentest_scan':
+      case 'security_scan':
+        return this.pentestScan(command, parameters);
       default:
         return { 
           status: 'error', 
@@ -284,6 +288,27 @@ class ExecutionEngine {
       }
     } catch (err) {
       return { status: 'error', error: err.message || 'GitHub API error' };
+    }
+  }
+
+  /**
+   * Pentest/Security scanning
+   */
+  async pentestScan(scanType, options = {}) {
+    const target = options.target || options.url || options.host;
+    
+    if (!target) {
+      return { 
+        status: 'error', 
+        error: 'Missing target. Provide target, url, or host in parameters.' 
+      };
+    }
+
+    try {
+      const result = await pentestTools.execute(scanType, target, options);
+      return result;
+    } catch (error) {
+      return { status: 'error', error: error.message };
     }
   }
 
