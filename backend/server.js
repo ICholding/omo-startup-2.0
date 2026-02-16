@@ -197,8 +197,10 @@ app.use(async (req, res, next) => {
 // WhatsApp ClawBot Integration - Direct OpenClaw
 const MessagingService = require('./lib/messaging-service');
 const whatsappRoutes = require('./src/routes/whatsapp');
+const telegramRoutes = require('./src/routes/telegram');
 
 app.use('/api/whatsapp', whatsappRoutes);
+app.use('/api/telegram', telegramRoutes);
 
 // Initialize messaging service if enabled
 let messagingService = null;
