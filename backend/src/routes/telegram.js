@@ -12,10 +12,9 @@ const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
 const CLAWBOT_URL = process.env.CLAWBOT_API_URL || process.env.MOLTBOT_URL;
 const CLAWBOT_KEY = process.env.CLAWBOT_API_KEY;
-const ALLOWED_CHAT_IDS = (process.env.TELEGRAM_ALLOWED_CHAT_IDS || '')
-  .split(',')
-  .map(id => id.trim())
-  .filter(Boolean);
+// Access control disabled - bot is open to all users
+// To restrict access, set TELEGRAM_ALLOWED_CHAT_IDS in environment
+const ALLOWED_CHAT_IDS = [];
 
 /**
  * Call Clawbot API with user message
@@ -111,7 +110,8 @@ router.post('/webhook', async (req, res) => {
     const text = msg.text || '';
     const username = msg.from?.username || msg.from?.first_name || 'user';
 
-    // Check allowed chat IDs if configured
+    // Access control (disabled by default - open to all)
+    // To enable: Set TELEGRAM_ALLOWED_CHAT_IDS env var with comma-separated chat IDs
     if (ALLOWED_CHAT_IDS.length > 0 && !ALLOWED_CHAT_IDS.includes(String(chatId))) {
       console.log(`[Telegram] Chat ${chatId} not in allowed list`);
       await sendTelegramMessage(chatId, 'This bot is private. Access denied.');
