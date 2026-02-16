@@ -16,6 +16,7 @@ export const useSocket = (sessionId) => {
   const [suggestion, setSuggestion] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
   const [thinkingMessage, setThinkingMessage] = useState('Working...');
+  const [currentMode, setCurrentMode] = useState('chat');
   const [executionPackage, setExecutionPackage] = useState(null);
 
   const resetStreamingState = () => {
@@ -64,7 +65,9 @@ export const useSocket = (sessionId) => {
     stream.addEventListener('execution-start', (event) => {
       const data = JSON.parse(event.data || '{}');
       const state = data?.state || 'thinking';
+      const mode = data?.mode || 'chat';
       setExecutionState(state);
+      setCurrentMode(mode);
       
       if (data?.message) {
         setThinkingMessage(data.message);
@@ -152,6 +155,7 @@ export const useSocket = (sessionId) => {
     suggestion,
     suggestions,
     thinkingMessage,
+    currentMode,
     executionPackage,
     reasoning: '',
     isReasoning: false,
