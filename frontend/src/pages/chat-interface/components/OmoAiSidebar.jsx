@@ -16,6 +16,15 @@ import {
   Terminal,
 } from 'lucide-react';
 import ProjectsView from './ProjectsView';
+import {
+  getAllSessions,
+  initializeSessions,
+  setActiveSessionId,
+  renameSession,
+  deleteSession,
+  archiveSession,
+  togglePinSession,
+} from '../../../utils/sessionManager';
 
 const SIDEBAR_STATE_KEY = 'omo-sidebar-state';
 const MAX_ACTIVE_SESSIONS = 40;
@@ -36,12 +45,18 @@ const createSessionFromId = (id, name) => ({
   timestamp: new Date().toISOString(),
 });
 
+const normalizeSession = (session) => ({
+  ...session,
+  status: session?.status === 'archived' ? 'Archived' : 'Active',
+  timestamp: session?.updatedAt || session?.createdAt || new Date().toISOString(),
+});
+
 const buildDefaultSidebarState = () => ({
-  sessions: [],
-  archivedSessions: [],
+  sessions: getAllSessions().map(normalizeSession).filter((s) => s?.status === 'Active'),
+  archivedSessions: getAllSessions().map(normalizeSession).filter((s) => s?.status === 'Archived'),
   projects: [],
-  selectedSessionId: null,
-  pinnedSessionIds: [],
+  selectedSessionId: initializeSessions()?.id || null,
+  pinnedSessionIds: getAllSessions().filter((s) => s?.pinned).map((s) => s.id),
 });
 
 const OmoAiSidebar = ({ isOpen, onClose, onActiveSessionChange, onNewSession, currentSessionId, onSessionUpdate }) => {
@@ -54,24 +69,27 @@ const OmoAiSidebar = ({ isOpen, onClose, onActiveSessionChange, onNewSession, cu
       if (!stored) return buildDefaultSidebarState();
       const parsed = JSON.parse(stored);
 
-      if (!Array.isArray(parsed?.sessions) || !Array.isArray(parsed?.archivedSessions) || !Array.isArray(parsed?.projects)) {
-        return buildDefaultSidebarState();
-      }
+      if (!Array.isArray(parsed?.projects)) return buildDefaultSidebarState();
 
-      const ensuredSessions = parsed.sessions.length > 0 ? parsed.sessions : [];
-      const selectedFromStorage = parsed.selectedSessionId;
-      const selectedExists = ensuredSessions.some((s) => s?.id === selectedFromStorage);
+      const managerSessions = getAllSessions().map(normalizeSession);
+      const managerActiveSessions = managerSessions.filter((s) => s.status === 'Active');
+      const managerArchivedSessions = managerSessions.filter((s) => s.status === 'Archived');
+      const managerPinnedSessionIds = managerSessions.filter((s) => s?.pinned).map((s) => s.id);
+
+      const selectedFromStorage = initializeSessions()?.id || parsed.selectedSessionId;
+      const selectedExists = managerActiveSessions.some((s) => s?.id === selectedFromStorage);
 
       return {
         ...parsed,
-        sessions: ensuredSessions,
+        sessions: managerActiveSessions,
+        archivedSessions: managerArchivedSessions,
         projects: parsed.projects.map((project) => ({
           ...project,
           sessionIds: Array.isArray(project?.sessionIds) ? project.sessionIds : [],
           archived: Boolean(project?.archived),
         })),
-        selectedSessionId: selectedExists ? selectedFromStorage : null,
-        pinnedSessionIds: Array.isArray(parsed?.pinnedSessionIds) ? parsed.pinnedSessionIds : [],
+        selectedSessionId: selectedExists ? selectedFromStorage : managerActiveSessions[0]?.id || null,
+        pinnedSessionIds: managerPinnedSessionIds,
       };
     } catch {
       return buildDefaultSidebarState();
@@ -100,6 +118,7 @@ const OmoAiSidebar = ({ isOpen, onClose, onActiveSessionChange, onNewSession, cu
   const setSelectedSession = (sessionId) => {
     if (!sessionId) return;
     setSidebarState((prev) => ({ ...prev, selectedSessionId: sessionId }));
+    setActiveSessionId(sessionId);
 
     const session = sessions.find((s) => s?.id === sessionId);
     if (session && typeof onActiveSessionChange === 'function') {
@@ -183,6 +202,7 @@ const OmoAiSidebar = ({ isOpen, onClose, onActiveSessionChange, onNewSession, cu
       ...prev,
       sessions: prev.sessions.map((s) => (s?.id === sessionId ? { ...s, name: trimmed } : s)),
     }));
+    renameSession(sessionId, trimmed);
     emitSessionUpdate({ type: 'renamed', sessionId, name: trimmed });
     setEditingId(null);
   };
@@ -204,6 +224,7 @@ const OmoAiSidebar = ({ isOpen, onClose, onActiveSessionChange, onNewSession, cu
         selectedSessionId: prev.selectedSessionId === sessionId ? null : prev.selectedSessionId,
       };
     });
+    deleteSession(sessionId);
     emitSessionUpdate({ type: 'deleted', sessionId });
     setOpenMenuId(null);
   };
@@ -220,6 +241,7 @@ const OmoAiSidebar = ({ isOpen, onClose, onActiveSessionChange, onNewSession, cu
       pinnedSessionIds: prev.pinnedSessionIds.filter((id) => id !== sessionId),
       selectedSessionId: prev.selectedSessionId === sessionId ? null : prev.selectedSessionId,
     }));
+    archiveSession(sessionId);
     emitSessionUpdate({ type: 'archived', sessionId });
     setOpenMenuId(null);
   };
@@ -270,6 +292,7 @@ const OmoAiSidebar = ({ isOpen, onClose, onActiveSessionChange, onNewSession, cu
         : [...prev.pinnedSessionIds, sessionId];
       return { ...prev, pinnedSessionIds: nextPinned };
     });
+    togglePinSession(sessionId);
     setOpenMenuId(null);
   };
 
