@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
+import { ExternalThread } from '@assistant-ui/react';
+import { AuiProvider } from '@assistant-ui/store';
 import ChatHeader from '../../components/ui/ChatHeader';
 import MessageInput from '../../components/ui/MessageInput';
-import MessageBubble from './components/MessageBubble';
 import OmoAiSidebar from './components/OmoAiSidebar';
-import ThinkingIndicator from './components/ThinkingIndicator';
 import { useSocket } from '../../hooks/useSocket';
 import { usePageTransition, fadeVariants } from '../../config/animations';
 import { 
@@ -15,6 +15,8 @@ import {
   addSession,
 } from '../../utils/sessionManager';
 
+import '@assistant-ui/react/styles/index.css';
+
 const SESSION_ID_KEY = 'omo-session-id';
 const CHAT_MESSAGES_KEY = 'omo-chat-messages';
 const CHAT_MESSAGES_BY_SESSION_KEY = 'omo-chat-messages-by-session';
@@ -22,18 +24,16 @@ const CHAT_STATE_BY_SESSION_KEY = 'omo-chat-state-by-session';
 
 /**
  * Automation Assistant Chat Interface
- * Real-time execution interface
+ * Hybrid approach using assistant-ui ExternalThread with OMO execution engine
  */
 const ChatInterface = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeSessionTitle, setActiveSessionTitle] = useState('');
   const [messages, setMessages] = useState([]);
   const [sessionId, setSessionId] = useState(null);
-  const [showThinkingForCurrentRequest, setShowThinkingForCurrentRequest] = useState(false);
   const [conversationState, setConversationState] = useState('initial');
   const [isPaused, setIsPaused] = useState(false);
 
-  const messagesEndRef = useRef(null);
   const pageVariants = usePageTransition(fadeVariants);
 
   const {
@@ -47,15 +47,7 @@ const ChatInterface = () => {
     sendMessage: sendSocketMessage
   } = useSocket(sessionId);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, streamedResponse]);
-
-  // Initialize session on mount - ensures consistent app state
+  // Initialize session on mount
   useEffect(() => {
     const activeSession = initializeSessions();
     if (activeSession) {
@@ -65,6 +57,7 @@ const ChatInterface = () => {
     }
   }, []);
 
+  // Load messages for current session
   useEffect(() => {
     if (!sessionId) {
       setMessages([]);
@@ -88,6 +81,7 @@ const ChatInterface = () => {
     }
   }, [sessionId]);
 
+  // Persist messages
   useEffect(() => {
     if (!sessionId) return;
 
@@ -106,11 +100,7 @@ const ChatInterface = () => {
   // Handle pause/resume toggle
   const handleTogglePause = useCallback(() => {
     if (!isStreaming) return;
-    
-    setIsPaused((prev) => {
-      const newPaused = !prev;
-      return newPaused;
-    });
+    setIsPaused((prev) => !prev);
   }, [isStreaming]);
 
   // Reset pause state when streaming ends
@@ -120,12 +110,63 @@ const ChatInterface = () => {
     }
   }, [isStreaming]);
 
-  // Handle streamed response with pause support
+  // Convert messages to assistant-ui format
+  const threadMessages = useMemo(() => {
+    return messages.map((msg) => ({
+      id: msg.id,
+      role: msg.sender === 'user' ? 'user' : 'assistant',
+      content: [{ type: 'text', text: msg.content }],
+      createdAt: new Date(msg.timestamp),
+      ...(msg.attachments && { attachments: msg.attachments })
+    }));
+  }, [messages]);
+
+  // Handle new message from assistant-ui
+  const handleNewMessage = useCallback((message) => {
+    const content = message.content?.[0]?.text || message.content;
+    if (!content) return;
+
+    const userMessage = {
+      id: crypto.randomUUID(),
+      sender: 'user',
+      content: content,
+      timestamp: new Date().toISOString()
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setConversationState('active-task');
+    setIsPaused(false);
+
+    const context = messages.slice(-5).map((m) => ({
+      role: m.sender === 'user' ? 'user' : 'assistant',
+      content: m.content
+    }));
+
+    const wasSent = sendSocketMessage(content, context, sessionId);
+
+    if (!wasSent && !isConnecting) {
+      setConversationState('error-handling');
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          sender: 'agent',
+          content: 'Connection issue: unable to reach backend. Please retry once connected.',
+          timestamp: new Date().toISOString(),
+          isNew: true
+        }
+      ]);
+    }
+  }, [messages, sessionId, sendSocketMessage, isConnecting]);
+
+  // Handle cancel/pause
+  const handleCancel = useCallback(() => {
+    handleTogglePause();
+  }, [handleTogglePause]);
+
+  // Process streamed response
   useEffect(() => {
-    if (!streamedResponse) return;
-    
-    // If paused, don't update messages (hold the current state)
-    if (isPaused) return;
+    if (!streamedResponse || isPaused) return;
 
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
@@ -155,102 +196,16 @@ const ChatInterface = () => {
     });
   }, [streamedResponse, isStreaming, isPaused]);
 
-  useEffect(() => {
-    if (!isStreaming) {
-      setShowThinkingForCurrentRequest(false);
-      setConversationState('waiting-for-response');
-    }
-  }, [isStreaming]);
-
-  useEffect(() => {
-    if (!isStreaming) return;
-
-    const activeState = executionState || 'thinking';
-    setConversationState(activeState);
-  }, [executionState, isStreaming]);
-
-  useEffect(() => {
-    if (!sessionId) return;
-
-    try {
-      const raw = localStorage.getItem(CHAT_STATE_BY_SESSION_KEY);
-      const parsed = raw ? JSON.parse(raw) : {};
-      if (parsed?.[sessionId]?.conversationState) {
-        setConversationState(parsed[sessionId].conversationState);
-      } else {
-        setConversationState('initial');
-      }
-    } catch {
-      setConversationState('initial');
-    }
-  }, [sessionId]);
-
-  useEffect(() => {
-    if (!sessionId) return;
-    try {
-      const raw = localStorage.getItem(CHAT_STATE_BY_SESSION_KEY);
-      const parsed = raw ? JSON.parse(raw) : {};
-      parsed[sessionId] = { conversationState };
-      localStorage.setItem(CHAT_STATE_BY_SESSION_KEY, JSON.stringify(parsed));
-    } catch {
-      // ignore
-    }
-  }, [sessionId, conversationState]);
-
   const ensureSessionId = () => {
-    if (sessionId) {
-      return sessionId;
-    }
-
+    if (sessionId) return sessionId;
     const nextSessionId = crypto.randomUUID();
     setSessionId(nextSessionId);
     localStorage.setItem(SESSION_ID_KEY, nextSessionId);
     return nextSessionId;
   };
 
-  const handleSendMessage = async (messageText, attachments = []) => {
-    if (!messageText.trim() && attachments.length === 0) return;
-
-    const userMessage = {
-      id: crypto.randomUUID(),
-      sender: 'user',
-      content: messageText,
-      timestamp: new Date().toISOString(),
-      attachments: attachments.length > 0 ? attachments : undefined
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setConversationState('active-task');
-    
-    // Reset pause state on new message
-    setIsPaused(false);
-
-    const context = messages.slice(-5).map((m) => ({
-      role: m.sender === 'user' ? 'user' : 'assistant',
-      content: m.content
-    }));
-
-    const activeSessionId = ensureSessionId();
-    const wasSent = sendSocketMessage(messageText, context, activeSessionId);
-    setShowThinkingForCurrentRequest(true);
-
-    if (!wasSent && !isConnecting) {
-      setConversationState('error-handling');
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          sender: 'agent',
-          content: 'Connection issue: unable to reach backend. Please retry once connected.',
-          timestamp: new Date().toISOString(),
-          isNew: true
-        }
-      ]);
-    }
-  };
-
   const handleSuggestionClick = (suggestionText) => {
-    handleSendMessage(suggestionText);
+    handleNewMessage({ content: [{ type: 'text', text: suggestionText }] });
   };
 
   const handleActiveSessionChange = (sessionInfo) => {
@@ -259,13 +214,11 @@ const ChatInterface = () => {
 
     if (nextSessionId && nextSessionId !== sessionId) {
       setActiveSessionId(nextSessionId);
-      
       const session = getSessionById(nextSessionId);
       const sessionName = session?.name || nextTitle || '';
       
       setActiveSessionTitle(sessionName);
       setSessionId(nextSessionId);
-      
       setMessages([]);
       setConversationState('initial');
       setIsPaused(false);
@@ -277,7 +230,6 @@ const ChatInterface = () => {
   
   const handleNewSession = (requestedName = '') => {
     const newSession = addSession(requestedName);
-    
     if (!newSession) return null;
 
     setMessages([]);
@@ -288,8 +240,6 @@ const ChatInterface = () => {
     
     localStorage.setItem(SESSION_ID_KEY, newSession.id);
     localStorage.removeItem(CHAT_MESSAGES_KEY);
-
-    setShowThinkingForCurrentRequest(false);
 
     return { id: newSession.id, name: newSession.name };
   };
@@ -307,7 +257,6 @@ const ChatInterface = () => {
       setConversationState('initial');
       setSessionId(null);
       setActiveSessionTitle('');
-      setShowThinkingForCurrentRequest(false);
       setIsPaused(false);
       localStorage.removeItem(SESSION_ID_KEY);
       localStorage.removeItem(CHAT_MESSAGES_KEY);
@@ -315,13 +264,6 @@ const ChatInterface = () => {
   };
 
   const isSidebarActive = isSidebarOpen;
-  const chatSurfaceClassName = `relative flex flex-col h-screen bg-background transition-opacity duration-300 ${isSidebarActive ? 'pointer-events-none select-none opacity-75' : 'opacity-100'}`;
-
-  const renderBlankState = () => (
-    <div className="absolute inset-0 flex items-center justify-center">
-      <h1 className="text-3xl font-semibold tracking-tight text-center">Assistant</h1>
-    </div>
-  );
 
   return (
     <>
@@ -330,10 +272,6 @@ const ChatInterface = () => {
         <meta
           name="description"
           content="Automation Assistant - simplify complex tasks into automated outcomes with structured logs."
-        />
-        <meta
-          name="keywords"
-          content="automation assistant, productivity, workflows, execution logs"
         />
       </Helmet>
 
@@ -353,7 +291,9 @@ const ChatInterface = () => {
           </motion.div>
         ) : (
           <motion.div
-            className={chatSurfaceClassName}
+            className={`relative flex flex-col h-screen bg-background transition-opacity duration-300 ${
+              isSidebarActive ? 'pointer-events-none select-none opacity-75' : 'opacity-100'
+            }`}
             variants={pageVariants}
             initial="initial"
             animate="animate"
@@ -372,81 +312,61 @@ const ChatInterface = () => {
               isConnected={isConnected}
             />
 
-            <main className="flex-1 overflow-y-auto smooth-scroll pt-14 pb-24">
-              <div className="message-container relative mx-auto max-w-5xl min-h-[65vh] px-2 sm:px-4 py-3 sm:py-4">
-                {messages?.length === 0 ? (
-                  renderBlankState()
-                ) : (
-                  <>
-                    {messages?.map((message, index) => {
-                      const isAgent = message?.sender === 'agent';
-                      const showAvatar = isAgent && (index === 0 || messages?.[index - 1]?.sender !== 'agent');
+            <AuiProvider>
+              <main className="flex-1 overflow-hidden flex flex-col pt-14 pb-4">
+                <div className="flex-1 overflow-y-auto px-2 sm:px-4">
+                  <ExternalThread
+                    messages={threadMessages}
+                    isRunning={isStreaming && !isPaused}
+                    onNew={handleNewMessage}
+                    onCancel={handleCancel}
+                  />
+                </div>
 
-                      return (
-                        <div key={message?.id} className="message-group">
-                          <MessageBubble
-                            message={message}
-                            showAvatar={showAvatar}
-                            isAgent={isAgent}
-                            isStreaming={message?.isStreaming}
-                            executionState={null}
-                          />
-                        </div>
-                      );
-                    })}
-
-                    {showThinkingForCurrentRequest && isStreaming && executionState !== 'responding' && !isPaused && (
-                      <div className="message-group">
-                        <ThinkingIndicator />
-                      </div>
-                    )}
-
-                    {isPaused && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="flex items-center gap-2 mt-2 ml-12"
-                      >
-                        <span className="text-xs text-gray-500">Paused</span>
-                      </motion.div>
-                    )}
-
-                    {(suggestions?.length > 0 || suggestion) && !isStreaming && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="flex flex-wrap items-center gap-2 mt-4 ml-12"
-                      >
-                        <span className="text-xs text-gray-500">Try next:</span>
-                        {(suggestions?.length > 0 ? suggestions : [suggestion]).filter(Boolean).map((item) => (
-                          <button
-                            key={item}
-                            onClick={() => handleSuggestionClick(item)}
-                            className="px-3 py-1 text-xs bg-gray-700/50 text-gray-300 hover:bg-gray-700 rounded-full transition-colors border border-gray-600"
-                          >
-                            {item}
-                          </button>
-                        ))}
-                      </motion.div>
-                    )}
-
-                    <div ref={messagesEndRef} />
-                  </>
+                {isPaused && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center justify-center gap-2 py-2"
+                  >
+                    <span className="text-xs text-gray-500 bg-gray-800/50 px-3 py-1 rounded-full">
+                      Paused
+                    </span>
+                  </motion.div>
                 )}
-              </div>
-            </main>
+
+                {(suggestions?.length > 0 || suggestion) && !isStreaming && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex flex-wrap items-center justify-center gap-2 px-4 py-2"
+                  >
+                    <span className="text-xs text-gray-500">Try next:</span>
+                    {(suggestions?.length > 0 ? suggestions : [suggestion])
+                      .filter(Boolean)
+                      .map((item) => (
+                        <button
+                          key={item}
+                          onClick={() => handleSuggestionClick(item)}
+                          className="px-3 py-1 text-xs bg-gray-700/50 text-gray-300 hover:bg-gray-700 rounded-full transition-colors border border-gray-600"
+                        >
+                          {item}
+                        </button>
+                      ))}
+                  </motion.div>
+                )}
+              </main>
+            </AuiProvider>
 
             {!isSidebarActive && (
-              <>
-                <MessageInput
-                  onSendMessage={handleSendMessage}
-                  disabled={isStreaming && isPaused}
-                  isAgentWorking={isStreaming}
-                  isPaused={isPaused}
-                  onTogglePause={handleTogglePause}
-                  placeholder={isConnected ? 'Describe what you want automated...' : 'Disconnected...'}
-                />
-              </>
+              <MessageInput
+                onSendMessage={(text) => handleNewMessage({ content: [{ type: 'text', text }] })}
+                disabled={isStreaming && isPaused}
+                isAgentWorking={isStreaming}
+                isPaused={isPaused}
+                onTogglePause={handleTogglePause}
+                placeholder={isConnected ? 'Describe what you want automated...' : 'Disconnected...'}
+              />
             )}
           </motion.div>
         )}
