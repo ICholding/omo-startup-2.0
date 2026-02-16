@@ -194,34 +194,39 @@ app.use(async (req, res, next) => {
   }
 });
 
-// WhatsApp ClawBot Integration - Direct OpenClaw
-const MessagingService = require('./lib/messaging-service');
-const whatsappRoutes = require('./src/routes/whatsapp');
+// Messaging and Chat Routes
 const telegramRoutes = require('./src/routes/telegram');
-
-app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/telegram', telegramRoutes);
 
-// Initialize messaging service if enabled
+// WhatsApp routes - only load if enabled
 let messagingService = null;
 
 if (process.env.ENABLE_MESSAGING === 'true') {
-  (async () => {
-    try {
-      messagingService = new MessagingService(app);
-      
-      // Store in app for route access
-      app.set('messagingService', messagingService);
-      app.set('agentRuntime', runtime);
-      
-      await messagingService.initialize();
-      console.log('✓ Messaging service (OpenClaw) initialized');
-    } catch (error) {
-      console.error('✗ Failed to initialize messaging service:', error.message);
-    }
-  })();
+  // Lazy load to prevent crash if OpenClaw is missing
+  try {
+    const MessagingService = require('./lib/messaging-service');
+    const whatsappRoutes = require('./src/routes/whatsapp');
+    app.use('/api/whatsapp', whatsappRoutes);
+    
+    (async () => {
+      try {
+        messagingService = new MessagingService(app);
+        app.set('messagingService', messagingService);
+        app.set('agentRuntime', runtime);
+        await messagingService.initialize();
+        console.log('✓ Messaging service (OpenClaw) initialized');
+      } catch (error) {
+        console.error('✗ Failed to initialize messaging service:', error.message);
+        console.log('ℹ Continuing without messaging service - Telegram bot still works');
+      }
+    })();
+  } catch (error) {
+    console.error('✗ OpenClaw module missing or broken:', error.message);
+    console.log('ℹ WhatsApp disabled - Telegram bot still works independently');
+  }
 } else {
-  console.log('ℹ Messaging service disabled (set ENABLE_MESSAGING=true to enable)');
+  console.log('ℹ Messaging service disabled (ENABLE_MESSAGING != true)');
+  console.log('✓ Telegram bot is active (uses direct Clawbot API, no OpenClaw needed)');
 }
 
 // API endpoint for sending messages
