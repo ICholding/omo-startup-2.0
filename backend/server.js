@@ -176,9 +176,12 @@ app.post('/api/execute', async (req, res) => {
 // ========== TELEGRAM BOT ROUTES ==========
 // Telegram integration - works independently without OpenClaw
 const telegramRoutes = require('./src/routes/telegram');
+const autonomyRoutes = require('./src/routes/autonomy');
 app.use('/api/telegram', telegramRoutes);
+app.use('/api/autonomy', autonomyRoutes);
 
 console.log('✓ Telegram bot routes loaded');
+console.log('✓ Autonomy routes loaded');
 
 // ========== STATIC FILES & FALLBACK ==========
 
