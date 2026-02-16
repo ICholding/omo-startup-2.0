@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, ArrowUp, Pause, Image, Paperclip } from 'lucide-react';
+import { ArrowUp, Square, Image, Paperclip } from 'lucide-react';
 
 import FileAttachmentList from './FileAttachmentList';
 
@@ -137,18 +137,15 @@ const MessageInput = ({ onSendMessage, disabled = false, isPaused = false, onTog
     });
   };
 
-  const handleRightButtonClick = (e) => {
+  const handlePauseClick = (e) => {
     e?.preventDefault();
-    if (isAgentWorking && onTogglePause) {
+    e?.stopPropagation();
+    if (onTogglePause) {
       onTogglePause();
-    } else {
-      handleSubmit(e);
     }
   };
 
-  const isButtonActive = isAgentWorking || message?.trim();
-  const buttonBgColor = isButtonActive ? '#FFFFFF' : '#3A3A3A';
-  const iconColor = isButtonActive ? '#000000' : '#FFFFFF';
+  const hasContent = message?.trim() || attachedFiles?.length > 0;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-transparent z-[60]">
@@ -253,19 +250,45 @@ const MessageInput = ({ onSendMessage, disabled = false, isPaused = false, onTog
                 }}
               />
 
+              {/* Pause button - shows when agent is working */}
+              {isAgentWorking && (
+                <button
+                  type="button"
+                  onClick={handlePauseClick}
+                  disabled={disabled}
+                  className="flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-lg transition-all duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95"
+                  style={{ 
+                    backgroundColor: '#FFFFFF',
+                    padding: '6px'
+                  }}
+                  aria-label={isPaused ? 'Resume agent' : 'Pause agent'}
+                >
+                  <Square 
+                    className="w-4 h-4 sm:w-4 sm:h-4" 
+                    strokeWidth={2.5} 
+                    fill="#000000" 
+                    stroke="#000000"
+                  />
+                </button>
+              )}
+
+              {/* Send button - black circle with white arrow */}
               <button
-                type="button"
-                onClick={handleRightButtonClick}
-                disabled={disabled || (!isAgentWorking && !message?.trim())}
-                className="flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-full transition-all duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
-                style={{ backgroundColor: buttonBgColor, padding: '6px' }}
-                aria-label={isAgentWorking ? (isPaused ? 'Resume agent' : 'Pause agent') : 'Send message'}
+                type="submit"
+                disabled={disabled || (!hasContent && !isAgentWorking)}
+                className="flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-full transition-all duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95"
+                style={{ 
+                  backgroundColor: '#000000',
+                  padding: '6px',
+                  border: '1px solid #333333'
+                }}
+                aria-label="Send message"
               >
-                {isAgentWorking ? (
-                  <Pause className="w-5 h-5 sm:w-5 sm:h-5" strokeWidth={2.25} fill={iconColor} style={{ color: iconColor }} />
-                ) : (
-                  <ArrowUp className="w-5 h-5 sm:w-5 sm:h-5" strokeWidth={2.25} style={{ color: iconColor }} />
-                )}
+                <ArrowUp 
+                  className="w-5 h-5 sm:w-5 sm:h-5" 
+                  strokeWidth={2.5} 
+                  stroke="#FFFFFF"
+                />
               </button>
             </div>
           </div>

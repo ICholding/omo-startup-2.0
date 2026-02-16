@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import ChatHeader from '../../components/ui/ChatHeader';
@@ -31,6 +31,7 @@ const ChatInterface = () => {
   const [sessionId, setSessionId] = useState(null);
   const [showThinkingForCurrentRequest, setShowThinkingForCurrentRequest] = useState(false);
   const [conversationState, setConversationState] = useState('initial');
+  const [isPaused, setIsPaused] = useState(false);
 
   const messagesEndRef = useRef(null);
   const pageVariants = usePageTransition(fadeVariants);
@@ -46,7 +47,6 @@ const ChatInterface = () => {
     sendMessage: sendSocketMessage
   } = useSocket(sessionId);
 
-
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -57,12 +57,10 @@ const ChatInterface = () => {
 
   // Initialize session on mount - ensures consistent app state
   useEffect(() => {
-    // Initialize sessions and get or create active session
     const activeSession = initializeSessions();
     if (activeSession) {
       setSessionId(activeSession.id);
       setActiveSessionTitle(activeSession.name);
-      // Migrate old session ID for backward compatibility
       localStorage.setItem(SESSION_ID_KEY, activeSession.id);
     }
   }, []);
@@ -70,7 +68,7 @@ const ChatInterface = () => {
   useEffect(() => {
     if (!sessionId) {
       setMessages([]);
-    setConversationState('initial');
+      setConversationState('initial');
       return;
     }
 
@@ -105,8 +103,29 @@ const ChatInterface = () => {
     }
   }, [messages, sessionId]);
 
+  // Handle pause/resume toggle
+  const handleTogglePause = useCallback(() => {
+    if (!isStreaming) return;
+    
+    setIsPaused((prev) => {
+      const newPaused = !prev;
+      return newPaused;
+    });
+  }, [isStreaming]);
+
+  // Reset pause state when streaming ends
+  useEffect(() => {
+    if (!isStreaming) {
+      setIsPaused(false);
+    }
+  }, [isStreaming]);
+
+  // Handle streamed response with pause support
   useEffect(() => {
     if (!streamedResponse) return;
+    
+    // If paused, don't update messages (hold the current state)
+    if (isPaused) return;
 
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
@@ -134,7 +153,7 @@ const ChatInterface = () => {
         }
       ];
     });
-  }, [streamedResponse, isStreaming]);
+  }, [streamedResponse, isStreaming, isPaused]);
 
   useEffect(() => {
     if (!isStreaming) {
@@ -202,6 +221,9 @@ const ChatInterface = () => {
 
     setMessages((prev) => [...prev, userMessage]);
     setConversationState('active-task');
+    
+    // Reset pause state on new message
+    setIsPaused(false);
 
     const context = messages.slice(-5).map((m) => ({
       role: m.sender === 'user' ? 'user' : 'assistant',
@@ -236,50 +258,41 @@ const ChatInterface = () => {
     const nextSessionId = sessionInfo?.id || null;
 
     if (nextSessionId && nextSessionId !== sessionId) {
-      // Update active session in manager
       setActiveSessionId(nextSessionId);
       
-      // Get session details from manager
       const session = getSessionById(nextSessionId);
       const sessionName = session?.name || nextTitle || '';
       
-      // Update UI state
       setActiveSessionTitle(sessionName);
       setSessionId(nextSessionId);
       
-      // Reset chat state for new session
       setMessages([]);
       setConversationState('initial');
+      setIsPaused(false);
       
-      // Update legacy storage for backward compatibility
       localStorage.setItem(SESSION_ID_KEY, nextSessionId);
       localStorage.removeItem(CHAT_MESSAGES_KEY);
     }
   };
   
-  // Handle creating new session from sidebar
   const handleNewSession = (requestedName = '') => {
-    // Create session using centralized manager
     const newSession = addSession(requestedName);
     
     if (!newSession) return null;
 
-    // Reset all chat state
     setMessages([]);
     setConversationState('initial');
     setSessionId(newSession.id);
     setActiveSessionTitle(newSession.name);
+    setIsPaused(false);
     
-    // Update legacy storage for backward compatibility
     localStorage.setItem(SESSION_ID_KEY, newSession.id);
     localStorage.removeItem(CHAT_MESSAGES_KEY);
 
-    // Reset agent automation state
     setShowThinkingForCurrentRequest(false);
 
     return { id: newSession.id, name: newSession.name };
   };
-
 
   const handleSessionUpdate = ({ type, sessionId: updatedSessionId, name }) => {
     if (!updatedSessionId || updatedSessionId !== sessionId) return;
@@ -295,6 +308,7 @@ const ChatInterface = () => {
       setSessionId(null);
       setActiveSessionTitle('');
       setShowThinkingForCurrentRequest(false);
+      setIsPaused(false);
       localStorage.removeItem(SESSION_ID_KEY);
       localStorage.removeItem(CHAT_MESSAGES_KEY);
     }
@@ -381,10 +395,20 @@ const ChatInterface = () => {
                       );
                     })}
 
-                    {showThinkingForCurrentRequest && isStreaming && executionState !== 'responding' && (
+                    {showThinkingForCurrentRequest && isStreaming && executionState !== 'responding' && !isPaused && (
                       <div className="message-group">
                         <ThinkingIndicator />
                       </div>
+                    )}
+
+                    {isPaused && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex items-center gap-2 mt-2 ml-12"
+                      >
+                        <span className="text-xs text-gray-500">Paused</span>
+                      </motion.div>
                     )}
 
                     {(suggestions?.length > 0 || suggestion) && !isStreaming && (
@@ -416,8 +440,10 @@ const ChatInterface = () => {
               <>
                 <MessageInput
                   onSendMessage={handleSendMessage}
-                  disabled={isStreaming}
+                  disabled={isStreaming && isPaused}
                   isAgentWorking={isStreaming}
+                  isPaused={isPaused}
+                  onTogglePause={handleTogglePause}
                   placeholder={isConnected ? 'Describe what you want automated...' : 'Disconnected...'}
                 />
               </>
