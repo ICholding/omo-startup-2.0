@@ -173,28 +173,9 @@ app.post('/api/execute', async (req, res) => {
   }
 });
 
-app.use(express.static(FRONTEND_BUILD_PATH));
+// ========== API ROUTES - MUST BE BEFORE STATIC MIDDLEWARE ==========
 
-app.use(async (req, res, next) => {
-  if (req.originalUrl.startsWith('/api/')) {
-    return res.status(404).json({ error: 'API endpoint not found', path: req.originalUrl });
-  }
-
-  if (req.method !== 'GET' && req.method !== 'HEAD') {
-    return next();
-  }
-
-  const indexPath = path.join(FRONTEND_BUILD_PATH, 'index.html');
-
-  try {
-    await fs.access(indexPath);
-    return res.sendFile(indexPath);
-  } catch {
-    return res.status(503).json({ error: 'Frontend is unavailable' });
-  }
-});
-
-// Messaging and Chat Routes
+// Telegram routes (always available, no OpenClaw needed)
 const telegramRoutes = require('./src/routes/telegram');
 app.use('/api/telegram', telegramRoutes);
 
@@ -229,7 +210,7 @@ if (process.env.ENABLE_MESSAGING === 'true') {
   console.log('✓ Telegram bot is active (uses direct Clawbot API, no OpenClaw needed)');
 }
 
-// API endpoint for sending messages
+// Messaging API endpoints
 app.post('/api/messaging/send', async (req, res) => {
   try {
     if (!messagingService) {
@@ -255,7 +236,6 @@ app.post('/api/messaging/send', async (req, res) => {
   }
 });
 
-// Get messaging status
 app.get('/api/messaging/status', async (req, res) => {
   try {
     if (!messagingService) {
@@ -272,6 +252,29 @@ app.get('/api/messaging/status', async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// ========== STATIC FILES & FALLBACK ==========
+
+app.use(express.static(FRONTEND_BUILD_PATH));
+
+app.use(async (req, res, next) => {
+  if (req.originalUrl.startsWith('/api/')) {
+    return res.status(404).json({ error: 'API endpoint not found', path: req.originalUrl });
+  }
+
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    return next();
+  }
+
+  const indexPath = path.join(FRONTEND_BUILD_PATH, 'index.html');
+
+  try {
+    await fs.access(indexPath);
+    return res.sendFile(indexPath);
+  } catch {
+    return res.status(503).json({ error: 'Frontend is unavailable' });
   }
 });
 
