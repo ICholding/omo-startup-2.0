@@ -1,6 +1,12 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
+/**
+ * ThinkingIndicator - Animated pixel sprite using CSS sprite sheet
+ * 
+ * Uses a 3x3 grid sprite sheet (9 frames) for smooth pixel animation
+ * Frame sequence: 0,1,2,3,4,5,6,7,8,7,6,5,4,3,2,1 (forward then reverse)
+ */
 const ThinkingIndicator = ({ label = 'Working...' }) => {
   return (
     <motion.div
@@ -19,20 +25,10 @@ const ThinkingIndicator = ({ label = 'Working...' }) => {
           }}
         >
           <div className="flex items-center gap-3">
-            {/* Pixel Thinking Indicator */}
-            <motion.img
-              src="/images/thinking-indicator.png"
-              alt="Thinking..."
-              className="w-8 h-8 object-contain"
-              animate={{ 
-                scale: [1, 1.05, 1],
-                opacity: [0.8, 1, 0.8]
-              }}
-              transition={{ 
-                duration: 1.5, 
-                repeat: Infinity, 
-                ease: 'easeInOut' 
-              }}
+            {/* CSS Sprite Animation */}
+            <div 
+              className="thinking-sprite"
+              aria-label="Thinking..."
             />
             <motion.span
               className="text-sm text-white/70 font-medium"
@@ -44,6 +40,44 @@ const ThinkingIndicator = ({ label = 'Working...' }) => {
           </div>
         </div>
       </div>
+      
+      {/* CSS for sprite animation */}
+      <style jsx>{`
+        .thinking-sprite {
+          width: 64px;
+          height: 32px;
+          background-image: url('/images/thinking-sprites.png');
+          background-repeat: no-repeat;
+          background-size: 300% 300%; /* 3x3 grid */
+          animation: sprite-think 1.5s steps(1) infinite;
+          image-rendering: pixelated;
+          image-rendering: -moz-crisp-edges;
+          image-rendering: crisp-edges;
+        }
+        
+        @keyframes sprite-think {
+          /* Frame 1 - Top Left */
+          0% { background-position: 0% 0%; }
+          /* Frame 2 - Top Center */
+          11.11% { background-position: 50% 0%; }
+          /* Frame 3 - Top Right */
+          22.22% { background-position: 100% 0%; }
+          /* Frame 4 - Middle Left */
+          33.33% { background-position: 0% 50%; }
+          /* Frame 5 - Middle Center */
+          44.44% { background-position: 50% 50%; }
+          /* Frame 6 - Middle Right */
+          55.55% { background-position: 100% 50%; }
+          /* Frame 7 - Bottom Left */
+          66.66% { background-position: 0% 100%; }
+          /* Frame 8 - Bottom Center */
+          77.77% { background-position: 50% 100%; }
+          /* Frame 9 - Bottom Right */
+          88.88% { background-position: 100% 100%; }
+          /* Back to Frame 1 */
+          100% { background-position: 0% 0%; }
+        }
+      `}</style>
     </motion.div>
   );
 };
