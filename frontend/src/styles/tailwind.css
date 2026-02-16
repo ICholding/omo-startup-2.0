@@ -266,36 +266,38 @@
   }
 
   .thinking-indicator {
-    @apply inline-flex items-center gap-1;
+    @apply inline-flex items-center;
   }
 
   .thinking-bubble {
-    @apply bg-muted rounded-lg px-2 py-1.5 inline-flex items-center justify-center;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    @apply inline-flex items-center justify-center;
+    padding: 2px 4px;
+    background: transparent;
   }
 
   .thinking-dots-container {
-    @apply flex items-center gap-1;
+    @apply flex items-center;
+    gap: 2px;
   }
 
   .thinking-dot {
-    @apply w-1 h-1 rounded-sm;
-    background: linear-gradient(135deg, #06b6d4 0%, #22d3ee 100%);
-    box-shadow: 0 0 2px rgba(6, 182, 212, 0.4);
+    width: 3px;
+    height: 3px;
+    background: #5ad0ff;
     image-rendering: pixelated;
-    animation: pixel-pulse 1.2s ease-in-out infinite;
+    animation: minutiae-pulse 1.5s ease-in-out infinite;
   }
 
-  @keyframes pixel-pulse {
+  @keyframes minutiae-pulse {
     0%, 100% { 
-      opacity: 0.3;
-      transform: scale(0.8);
-      box-shadow: 0 0 1px rgba(6, 182, 212, 0.3);
+      opacity: 0.25;
+      transform: scale(1);
+      box-shadow: 0 0 0 rgba(90, 208, 255, 0);
     }
     50% { 
-      opacity: 1;
-      transform: scale(1);
-      box-shadow: 0 0 3px rgba(6, 182, 212, 0.6);
+      opacity: 0.7;
+      transform: scale(1.05);
+      box-shadow: 0 0 1px rgba(90, 208, 255, 0.3);
     }
   }
 }
