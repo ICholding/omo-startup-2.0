@@ -1,0 +1,162 @@
+version: "3.9"
+
+services:
+  clawbot-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+      target: production
+    image: icholding/clawbot-agent:latest
+    container_name: clawbot-agent
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      AGENT_PORT: 10000
+      LETTA_URL: http://letta:8283
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      CHROMA_HOST: chromadb
+    ports:
+      - "10000:10000"
+    depends_on:
+      - postgres
+      - redis
+      - chromadb
+    volumes:
+      - agent-data:/app/backend/data
+      - letta-memory:/app/backend/data/letta
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:10000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  clawbot-fallback:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+      target: production
+    image: icholding/clawbot-agent:latest
+    container_name: clawbot-fallback
+    restart: unless-stopped
+    profiles: ["ha"]
+    env_file:
+      - .env
+    environment:
+      AGENT_PORT: 10001
+      FALLBACK_MODE: "true"
+      LETTA_URL: http://letta:8283
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      CHROMA_HOST: chromadb
+    ports:
+      - "10001:10001"
+    depends_on:
+      - postgres
+      - redis
+      - chromadb
+    volumes:
+      - agent-data:/app/backend/data
+      - letta-memory:/app/backend/data/letta
+
+  postgres:
+    image: ankane/pgvector:latest
+    container_name: clawbot-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: clawbot
+      POSTGRES_USER: clawbot
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres-pass}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: clawbot-chromadb
+    restart: unless-stopped
+    environment:
+      ALLOW_RESET: "false"
+      IS_PERSISTENT: "true"
+    volumes:
+      - chroma-data:/chroma/chroma
+    ports:
+      - "8000:8000"
+
+  redis:
+    image: redis:7-alpine
+    container_name: clawbot-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:-redis-pass}"]
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: clawbot-prometheus
+    profiles: ["observability"]
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    volumes:
+      - ./docker/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: clawbot-grafana
+    profiles: ["observability"]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+
+  loki:
+    image: grafana/loki:2.9.8
+    container_name: clawbot-loki
+    profiles: ["observability"]
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    volumes:
+      - ./docker/monitoring/loki/loki-config.yaml:/etc/loki/local-config.yaml:ro
+    ports:
+      - "3100:3100"
+
+  backup:
+    build:
+      context: ./docker/backup
+      dockerfile: Dockerfile
+    container_name: clawbot-backup
+    profiles: ["backup"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: clawbot
+      POSTGRES_USER: clawbot
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres-pass}
+      BACKUP_RETENTION_DAYS: 30
+      BACKUP_INTERVAL_SECONDS: 300
+    volumes:
+      - backups:/backups
+      - agent-data:/data/agent:ro
+      - letta-memory:/data/letta:ro
+      - chroma-data:/data/chroma:ro
+      - redis-data:/data/redis:ro
+      - postgres-data:/data/postgres:ro
+    depends_on:
+      - postgres
+
+volumes:
+  agent-data:
+  letta-memory:
+  chroma-data:
+  postgres-data:
+  redis-data:
+  grafana-data:
+  backups:
