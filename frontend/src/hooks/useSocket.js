@@ -66,7 +66,12 @@ export const useSocket = (sessionId) => {
       const state = data?.state || 'thinking';
       setExecutionState(state);
       
-      // Dynamic thinking messages based on state
+      if (data?.message) {
+        setThinkingMessage(data.message);
+        return;
+      }
+
+      // Fallback messaging by known state
       switch (state) {
         case 'thinking':
           setThinkingMessage('Working... analyzing your request');
@@ -84,7 +89,7 @@ export const useSocket = (sessionId) => {
           setThinkingMessage('Working... processing results');
           break;
         default:
-          setThinkingMessage(data?.message || 'Working...');
+          setThinkingMessage('Working...');
       }
     });
 
