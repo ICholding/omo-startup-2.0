@@ -58,7 +58,9 @@ class DiagnosticAgent {
       }
 
       // Check for secrets in if conditions (GitHub Actions limitation)
-      if (content.includes('if:') && content.match(/secrets\.[A-Z_]+/)) {
+      // Only matches: if: secrets.XXX or if: ${{ secrets.XXX }}
+      const ifSecretsPattern = /if:\s*\$?\{\{?\s*secrets\./;
+      if (ifSecretsPattern.test(content)) {
         this.log('error', `Workflow has invalid secrets reference in 'if' condition`, {
           file: `.github/workflows/${file}`,
           issue: 'GitHub Actions does not allow secrets.XXX in if expressions',

@@ -1,0 +1,49 @@
+{
+  "timestamp": "2026-02-16T04:25:42.702Z",
+  "summary": {
+    "errors": 0,
+    "warnings": 0,
+    "info": 5
+  },
+  "issues": [],
+  "warnings": [],
+  "info": [
+    {
+      "type": "info",
+      "message": "Found 2 workflow files",
+      "details": {
+        "files": [
+          "diagnostics.yml",
+          "whatsapp-clawbot.yml"
+        ]
+      },
+      "timestamp": "2026-02-16T04:25:42.172Z"
+    },
+    {
+      "type": "info",
+      "message": "WhatsApp routes detected in server.js",
+      "details": {},
+      "timestamp": "2026-02-16T04:25:42.174Z"
+    },
+    {
+      "type": "info",
+      "message": "Found 1 migration files",
+      "details": {},
+      "timestamp": "2026-02-16T04:25:42.175Z"
+    },
+    {
+      "type": "info",
+      "message": "2 uncommitted changes",
+      "details": {
+        "suggestion": "Run: git add -A && git commit -m \"your message\""
+      },
+      "timestamp": "2026-02-16T04:25:42.184Z"
+    },
+    {
+      "type": "info",
+      "message": "No npm vulnerabilities found",
+      "details": {},
+      "timestamp": "2026-02-16T04:25:42.702Z"
+    }
+  ]
+}
