@@ -1,0 +1,137 @@
+# syntax=docker/dockerfile:1.7
+
+############################
+# Stage 1: Base Linux image
+############################
+FROM python:3.11-slim-bookworm AS base-linux
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash \
+    build-essential \
+    ca-certificates \
+    curl \
+    git \
+    jq \
+    libpq-dev \
+    openssl \
+    procps \
+    tini \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+##################################
+# Stage 2: Letta memory toolchain
+##################################
+FROM base-linux AS letta-memory
+RUN pip install \
+    letta \
+    letta-client \
+    psycopg2-binary \
+    pgvector
+
+##############################
+# Stage 3: RAG dependencies
+##############################
+FROM letta-memory AS rag-stack
+RUN pip install \
+    llama-index \
+    haystack-ai \
+    sentence-transformers
+
+################################
+# Stage 4: Multi-agent packages
+################################
+FROM rag-stack AS multi-agent
+RUN pip install \
+    pyautogen \
+    crewai \
+    metagpt
+
+###################################
+# Stage 5: Verification guardrails
+###################################
+FROM multi-agent AS verification
+RUN pip install \
+    nemoguardrails \
+    guardrails-ai \
+    evaluate
+
+##########################
+# Stage 6: ML/AI core
+##########################
+FROM verification AS ml-core
+RUN pip install \
+    torch \
+    transformers \
+    spacy
+
+##########################
+# Stage 7: Databases
+##########################
+FROM ml-core AS databases
+RUN pip install \
+    chromadb \
+    redis \
+    sqlalchemy
+
+##########################
+# Stage 8: Web/API
+##########################
+FROM databases AS web-api
+RUN pip install \
+    fastapi \
+    uvicorn \
+    prometheus-client
+
+##########################
+# Stage 9: Security tooling
+##########################
+FROM web-api AS security
+RUN pip install \
+    bandit \
+    cryptography \
+    safety
+
+##########################
+# Stage 10: Production image
+##########################
+FROM node:20-bookworm-slim AS production
+
+ENV NODE_ENV=production \
+    AGENT_PORT=10000
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    dumb-init \
+    jq \
+    python3 \
+    python3-pip \
+    tini \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=security /usr/local/lib/python3.11 /usr/local/lib/python3.11
+COPY --from=security /usr/local/bin /usr/local/bin
+
+COPY backend/package*.json ./backend/
+RUN cd backend && npm ci --omit=dev
+
+COPY backend ./backend
+
+RUN useradd --create-home --uid 10001 icholding && \
+    chown -R icholding:icholding /app
+
+USER icholding
+
+EXPOSE 10000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD curl -fsS http://localhost:${AGENT_PORT}/health || exit 1
+
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["node", "backend/server.js"]

@@ -1,0 +1,12 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: clawbot-agent
+    static_configs:
+      - targets: ["clawbot-agent:10000"]
+
+  - job_name: chromadb
+    metrics_path: /api/v1/heartbeat
+    static_configs:
+      - targets: ["chromadb:8000"]
