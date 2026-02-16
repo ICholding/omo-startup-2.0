@@ -29,7 +29,13 @@ services:
       - key: OPENROUTER_API_KEY
         sync: false
       - key: OPENROUTER_MODEL
-        value: openai/gpt-4o-mini
+        value: anthropic/claude-3.5-sonnet
+      - key: OPENROUTER_MODEL_CHAT
+        value: anthropic/claude-3.5-sonnet
+      - key: OPENROUTER_MODEL_AGENT
+        value: xai/grok-beta
+      - key: OPENROUTER_MODEL_CODE
+        value: openai/gpt-4o
       - key: GITHUB_TOKEN
         sync: false
       - key: GITHUB_REPO

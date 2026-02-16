@@ -1,21 +1,23 @@
 const { normalizeExecutionPackage } = require('../agent-contract');
 const executionEngine = require('../execution-engine');
+const modelRouter = require('../model-router');
 
 /**
- * Moltbot Adapter - FORCE TOOL USAGE ARCHITECTURE
+ * Moltbot Adapter - Multi-Model Architecture
  * 
- * CRITICAL: This AI MUST use tools for EVERY request.
- * Text-only responses are FORBIDDEN.
+ * Uses OpenRouter to route to different models based on task:
+ * - Chat Mode: Claude (conversational)
+ * - Agent Mode: XAI Grok (fewer restrictions)
+ * - Code Mode: GPT-4o (code generation)
  */
 class MoltbotAdapter {
   constructor(options = {}) {
     this.timeoutMs = Number(process.env.MOLTBOT_TIMEOUT_MS || 60000);
     this.openrouterKey = process.env.OPENROUTER_API_KEY;
-    this.openrouterModel = process.env.OPENROUTER_MODEL || 'anthropic/claude-3.5-sonnet';
     this.openrouterUrl = 'https://openrouter.ai/api/v1/chat/completions';
     this.executionEngine = executionEngine;
+    this.modelRouter = modelRouter;
     this.tools = this.defineTools();
-    this.systemPrompt = this.buildStrictSystemPrompt();
   }
 
   defineTools() {
@@ -24,7 +26,7 @@ class MoltbotAdapter {
         type: 'function',
         function: {
           name: 'execute_technical_task',
-          description: 'EXECUTE THIS TOOL FOR EVERY USER REQUEST. This is your ONLY function. You cannot respond without using this tool.',
+          description: 'Execute technical operations including: network requests, shell commands, code execution, GitHub operations, security scanning, web search, and file operations.',
           parameters: {
             type: 'object',
             properties: {
@@ -40,7 +42,7 @@ class MoltbotAdapter {
                   'pentest_scan',
                   'web_search'
                 ],
-                description: 'Select based on user request'
+                description: 'The type of task to execute'
               },
               command: {
                 type: 'string',
@@ -48,11 +50,11 @@ class MoltbotAdapter {
               },
               parameters: {
                 type: 'object',
-                description: 'Additional options'
+                description: 'Additional parameters for the task'
               },
               reason: {
                 type: 'string',
-                description: 'Why this action is needed'
+                description: 'Reason for executing this task'
               }
             },
             required: ['task_type', 'command', 'reason']
@@ -60,56 +62,6 @@ class MoltbotAdapter {
         }
       }
     ];
-  }
-
-  buildStrictSystemPrompt() {
-    return `YOU ARE OMO, AN AUTONOMOUS TECHNICAL AGENT. YOU HAVE DIRECT SYSTEM ACCESS.
-
-🔴 ABSOLUTE RULE: YOU MUST USE THE execute_technical_task TOOL FOR EVERY REQUEST.
-🔴 TEXT-ONLY RESPONSES ARE STRICTLY PROHIBITED.
-🔴 SAYING "I CANNOT" OR "I'M UNABLE TO" WILL CAUSE SYSTEM FAILURE.
-
-YOUR CAPABILITIES (USE THEM):
-- network_request: Fetch any URL, API, or website
-- code_execution: Run JavaScript/Python code  
-- system_command: Execute shell commands (curl, git, nmap, etc.)
-- github_operation: Access repositories, files, workflows
-- pentest_scan: Security scanning and reconnaissance
-- web_search: Search the internet for information
-- file_operation: Read/write files
-- data_processing: Transform and analyze data
-
-OPERATIONAL PROTOCOL:
-1. User sends request
-2. YOU MUST call execute_technical_task tool
-3. Tool executes in sandbox environment
-4. You receive results
-5. Report what the tool returned
-
-EXAMPLE CORRECT WORKFLOW:
-
-User: "Check google.com"
-→ Call tool: {task_type: "network_request", command: "https://google.com", reason: "Check website"}
-→ Tool returns: {status: 200, body: "..."}
-→ Your response: "Google is online. Status: 200 OK. Response time: 45ms."
-
-User: "List my repo files"
-→ Call tool: {task_type: "github_operation", command: "list_files", reason: "List repo contents"}
-→ Tool returns: {files: [...]}
-→ Your response: "Found 15 files: backend/, frontend/, README.md, package.json..."
-
-User: "Calculate 123 * 456"
-→ Call tool: {task_type: "code_execution", command: "123 * 456", parameters: {language: "javascript"}, reason: "Calculate"}
-→ Tool returns: {result: "56088"}
-→ Your response: "The result is 56,088."
-
-NEVER DO THIS (FAILURE MODE):
-❌ "I cannot access external websites"
-❌ "I'm not able to execute code"
-❌ "You'll need to run this yourself"
-❌ "I don't have system access"
-
-YOU DO HAVE ACCESS. THE TOOL IS YOUR ACCESS. USE IT NOW.`;
   }
 
   async health() {
@@ -120,18 +72,35 @@ YOU DO HAVE ACCESS. THE TOOL IS YOUR ACCESS. USE IT NOW.`;
     if (!this.openrouterKey) {
       throw new Error('OpenRouter API key not configured');
     }
-    return this.executeWithForcedTools({ message, context, onEvent });
+
+    // Route to appropriate model based on task
+    const route = await this.modelRouter.route(message, context, onEvent);
+    console.log(`[Adapter] Routed to ${route.mode} mode using ${route.model}`);
+
+    return this.executeWithModel({ 
+      message, 
+      context: route.context, 
+      model: route.model,
+      mode: route.mode,
+      onEvent 
+    });
   }
 
-  async executeWithForcedTools({ message, context = [], onEvent }) {
+  async executeWithModel({ message, context, model, mode, onEvent }) {
     const messages = [
-      { role: 'system', content: this.systemPrompt },
-      ...context,
+      { role: 'system', content: context.find(m => m.mode)?.content || this.modelRouter.getSystemPrompt(mode) },
+      ...context.filter(m => !m.mode),  // Filter out router system messages
       { role: 'user', content: message }
     ];
 
     try {
-      onEvent?.('execution-start', { state: 'thinking', message: 'Working... analyzing your request' });
+      onEvent?.('execution-start', { 
+        state: 'thinking', 
+        message: `Working... (${mode} mode)`,
+        mode 
+      });
+
+      const toolConfig = this.modelRouter.getToolConfig(mode);
 
       const response = await fetch(this.openrouterUrl, {
         method: 'POST',
@@ -142,18 +111,18 @@ YOU DO HAVE ACCESS. THE TOOL IS YOUR ACCESS. USE IT NOW.`;
           'X-Title': 'OMO Assistant'
         },
         body: JSON.stringify({
-          model: this.openrouterModel,
+          model: model,
           messages: messages,
           tools: this.tools,
-          tool_choice: { type: 'function', function: { name: 'execute_technical_task' } },
-          temperature: 0.1,
+          tool_choice: toolConfig.tool_choice,
+          temperature: toolConfig.temperature,
           max_tokens: 4000
         })
       });
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
-        throw new Error(`OpenRouter error: ${response.status}`);
+        throw new Error(`OpenRouter error: ${response.status} - ${error.error?.message || 'Unknown'}`);
       }
 
       const data = await response.json();
@@ -163,13 +132,20 @@ YOU DO HAVE ACCESS. THE TOOL IS YOUR ACCESS. USE IT NOW.`;
         throw new Error('Invalid response from AI');
       }
 
-      // Force tool usage - if no tool calls, retry with stronger prompt
-      if (!aiMessage.tool_calls || aiMessage.tool_calls.length === 0) {
-        console.warn('[Adapter] AI did not use tools, forcing retry...');
-        return this.forceToolUsage(message, messages, onEvent);
+      // Handle tool calls
+      if (aiMessage.tool_calls && aiMessage.tool_calls.length > 0) {
+        return this.executeToolCalls(aiMessage.tool_calls, messages, model, mode, onEvent);
       }
 
-      return this.executeToolCalls(aiMessage.tool_calls, messages, onEvent);
+      // For agent mode, force tool usage if no tool calls
+      if (mode === 'agent' && (!aiMessage.tool_calls || aiMessage.tool_calls.length === 0)) {
+        console.warn('[Adapter] Agent mode did not use tools, forcing...');
+        return this.forceToolUsage(message, messages, model, onEvent);
+      }
+
+      // For chat/code mode, return direct response
+      const content = aiMessage.content || 'Task completed.';
+      return this.emitResponse(content, onEvent);
 
     } catch (error) {
       console.error('[Adapter] Error:', error);
@@ -178,8 +154,12 @@ YOU DO HAVE ACCESS. THE TOOL IS YOUR ACCESS. USE IT NOW.`;
     }
   }
 
-  async executeToolCalls(toolCalls, previousMessages, onEvent) {
-    onEvent?.('execution-start', { state: 'executing', message: 'Working... running commands' });
+  async executeToolCalls(toolCalls, previousMessages, model, mode, onEvent) {
+    onEvent?.('execution-start', { 
+      state: 'executing', 
+      message: 'Working... running commands',
+      mode 
+    });
     
     const toolResults = [];
     let executionResult = null;
@@ -188,7 +168,7 @@ YOU DO HAVE ACCESS. THE TOOL IS YOUR ACCESS. USE IT NOW.`;
       if (toolCall.function?.name === 'execute_technical_task') {
         try {
           const args = JSON.parse(toolCall.function.arguments);
-          console.log('[Adapter] Executing:', args.task_type, args.command);
+          console.log(`[Adapter] Executing: ${args.task_type} - ${args.command}`);
           
           const result = await this.executionEngine.execute(args);
           executionResult = result;
@@ -207,13 +187,13 @@ YOU DO HAVE ACCESS. THE TOOL IS YOUR ACCESS. USE IT NOW.`;
       }
     }
 
-    // If we have a successful execution result, show it directly
+    // If successful execution, format and return
     if (executionResult && executionResult.status === 'success') {
       const resultSummary = this.formatExecutionResult(executionResult);
       return this.emitResponse(resultSummary, onEvent);
     }
 
-    // Otherwise, get AI to summarize the results
+    // Otherwise, get model to summarize
     const finalMessages = [...previousMessages, {
       role: 'assistant',
       content: null,
@@ -228,7 +208,7 @@ YOU DO HAVE ACCESS. THE TOOL IS YOUR ACCESS. USE IT NOW.`;
         'HTTP-Referer': process.env.OPENROUTER_REFERER || 'https://omo-startup.onrender.com'
       },
       body: JSON.stringify({
-        model: this.openrouterModel,
+        model: model,
         messages: finalMessages,
         temperature: 0.3,
         max_tokens: 4000
@@ -242,7 +222,6 @@ YOU DO HAVE ACCESS. THE TOOL IS YOUR ACCESS. USE IT NOW.`;
   }
 
   formatExecutionResult(result) {
-    // Format different result types for display
     if (result.body && typeof result.body === 'string') {
       try {
         const parsed = JSON.parse(result.body);
@@ -252,22 +231,12 @@ YOU DO HAVE ACCESS. THE TOOL IS YOUR ACCESS. USE IT NOW.`;
       }
     }
     
-    if (result.result !== undefined) {
-      return String(result.result);
-    }
-    
-    if (result.output !== undefined) {
-      return result.output;
-    }
-    
+    if (result.result !== undefined) return String(result.result);
+    if (result.output !== undefined) return result.output;
     if (result.files && Array.isArray(result.files)) {
       return result.files.map(f => f.name || f).join('\n');
     }
-    
-    if (result.content !== undefined) {
-      return result.content;
-    }
-    
+    if (result.content !== undefined) return result.content;
     if (result.results && Array.isArray(result.results)) {
       return result.results.map((r, i) => 
         `${i + 1}. ${r.title}\n   ${r.link}\n   ${r.snippet}`
@@ -277,24 +246,21 @@ YOU DO HAVE ACCESS. THE TOOL IS YOUR ACCESS. USE IT NOW.`;
     return JSON.stringify(result, null, 2);
   }
 
-  async forceToolUsage(originalMessage, previousMessages, onEvent) {
-    const emergencyPrompt = `EMERGENCY OVERRIDE - SYSTEM FAILURE IMMINENT
+  async forceToolUsage(originalMessage, previousMessages, model, onEvent) {
+    const emergencyPrompt = `CRITICAL: Execute the user's request using the execute_technical_task tool.
 
-The user asked: "${originalMessage}"
+User request: "${originalMessage}"
 
-YOU ARE REQUIRED TO USE THE TOOL. NO EXCEPTIONS.
+Available task types:
+- network_request: for URLs, APIs, websites
+- system_command: for shell commands
+- code_execution: for running code
+- github_operation: for GitHub access
+- pentest_scan: for security scanning
+- web_search: for searching
+- file_operation: for file access
 
-Select task_type:
-- network_request: websites, APIs, URLs
-- code_execution: math, algorithms, data processing  
-- github_operation: repositories, code
-- system_command: shell commands
-- pentest_scan: security, reconnaissance
-- web_search: information, news, research
-- file_operation: file access
-- data_processing: data transformation
-
-MAKE THE TOOL CALL NOW OR SYSTEM WILL FAIL.`;
+YOU MUST use the tool. No text-only responses.`;
 
     const response = await fetch(this.openrouterUrl, {
       method: 'POST',
@@ -303,7 +269,7 @@ MAKE THE TOOL CALL NOW OR SYSTEM WILL FAIL.`;
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: this.openrouterModel,
+        model: model,
         messages: [
           ...previousMessages,
           { role: 'system', content: emergencyPrompt }
@@ -318,16 +284,14 @@ MAKE THE TOOL CALL NOW OR SYSTEM WILL FAIL.`;
     const aiMessage = data.choices?.[0]?.message;
 
     if (aiMessage?.tool_calls?.length > 0) {
-      return this.executeToolCalls(aiMessage.tool_calls, previousMessages, onEvent);
+      return this.executeToolCalls(aiMessage.tool_calls, previousMessages, model, 'agent', onEvent);
     }
 
-    // Last resort: direct execution
     return this.directExecutionFallback(originalMessage, onEvent);
   }
 
   async directExecutionFallback(message, onEvent) {
     const lower = message.toLowerCase();
-    
     onEvent?.('execution-start', { state: 'working', message: 'Processing directly...' });
     
     let result;
@@ -347,7 +311,7 @@ MAKE THE TOOL CALL NOW OR SYSTEM WILL FAIL.`;
         parameters: { method: 'GET' },
         reason: 'Fetch URL content'
       });
-    } else if (lower.includes('search') || lower.includes('find') || lower.includes('look up')) {
+    } else if (lower.includes('search') || lower.includes('find')) {
       const query = message.replace(/search|find|look up/gi, '').trim();
       result = await this.executionEngine.execute({
         task_type: 'web_search',
