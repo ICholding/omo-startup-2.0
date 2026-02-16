@@ -13,6 +13,15 @@ const SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
 // OpenClaw service URL (new name for clawbot)
 const CLAWBOT_URL = process.env.OPENCLAW_API_URL || process.env.CLAWBOT_API_URL || process.env.MOLTBOT_URL || 'https://omo-startup-openclaw-hbdn.onrender.com';
 const CLAWBOT_KEY = process.env.CLAWBOT_API_KEY || process.env.API_KEY;
+const CLAWBOT_TIMEOUT_MS = Number.parseInt(process.env.CLAWBOT_TIMEOUT, 10) || 300000;
+
+function normalizeBaseUrl(url) {
+  return String(url || '').replace(/\/+$/, '');
+}
+
+function isAgentHealthy(payload = {}) {
+  return payload.healthy === true || payload.status === 'healthy';
+}
 
 // Agent connection state
 let agentState = {
@@ -25,16 +34,39 @@ let agentState = {
  * Poll agent connection status
  */
 async function pollAgentConnection() {
-  try {
-    const response = await axios.get(`${CLAWBOT_URL}/health`, {
-      timeout: 5000
-    });
-    
-    agentState.connected = response.data?.healthy || false;
-    agentState.status = response.data?.status || 'unknown';
+  const baseUrl = normalizeBaseUrl(CLAWBOT_URL);
+  const healthEndpoints = [`${baseUrl}/api/health`, `${baseUrl}/health`];
+
+  if (!baseUrl) {
+    agentState.connected = false;
+    agentState.status = 'not-configured';
     agentState.lastCheck = Date.now();
-    
-    return agentState.connected;
+    return false;
+  }
+
+  try {
+    for (const endpoint of healthEndpoints) {
+      try {
+        const response = await axios.get(endpoint, { timeout: 5000 });
+
+        agentState.connected = isAgentHealthy(response.data);
+        agentState.status = response.data?.status || (agentState.connected ? 'healthy' : 'degraded');
+        agentState.lastCheck = Date.now();
+
+        return agentState.connected;
+      } catch (error) {
+        if (error.response?.status && error.response.status < 500) {
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    agentState.connected = false;
+    agentState.status = 'unreachable';
+    agentState.lastCheck = Date.now();
+    return false;
   } catch (error) {
     agentState.connected = false;
     agentState.status = 'disconnected';
@@ -49,15 +81,18 @@ setInterval(pollAgentConnection, 30000);
 
 // Initial poll
 pollAgentConnection();
-// Access control disabled - bot is open to all users
-// To restrict access, set TELEGRAM_ALLOWED_CHAT_IDS in environment
-const ALLOWED_CHAT_IDS = [];
+const ALLOWED_CHAT_IDS = (process.env.TELEGRAM_ALLOWED_CHAT_IDS || '')
+  .split(',')
+  .map((chatId) => chatId.trim())
+  .filter(Boolean);
 
 /**
  * Call Clawbot API with user message
  */
 async function callClawbot(userText, chatId, username = 'telegram_user') {
-  if (!CLAWBOT_URL) {
+  const baseUrl = normalizeBaseUrl(CLAWBOT_URL);
+
+  if (!baseUrl) {
     return `Clawbot not configured yet. You said: "${userText}"`;
   }
 
@@ -67,7 +102,7 @@ async function callClawbot(userText, chatId, username = 'telegram_user') {
       headers.Authorization = `Bearer ${CLAWBOT_KEY}`;
     }
 
-    const chatEndpoint = CLAWBOT_URL.endsWith('/api/chat/message') ? CLAWBOT_URL : `${CLAWBOT_URL}/api/chat/message`;
+    const chatEndpoint = baseUrl.endsWith('/api/chat/message') ? baseUrl : `${baseUrl}/api/chat/message`;
     
     const res = await axios.post(
       chatEndpoint,
@@ -81,7 +116,7 @@ async function callClawbot(userText, chatId, username = 'telegram_user') {
       },
       {
         headers,
-        timeout: parseInt(process.env.CLAWBOT_TIMEOUT) || 300000
+        timeout: CLAWBOT_TIMEOUT_MS
       }
     );
 
@@ -183,11 +218,13 @@ router.post('/webhook', async (req, res) => {
           return;
           
         case '/status':
-          const status = CLAWBOT_URL ? '✅ Online' : '⚠️ Not configured';
+          const status = agentState.connected ? '✅ Online' : '⚠️ Offline';
           await sendTelegramMessage(chatId, 
             `<b>Status:</b> ${status}\n` +
             `<b>Provider:</b> ${process.env.AGENT_PROVIDER || 'clawbot'}\n` +
-            `<b>Uptime:</b> ${process.uptime()}s`
+            `<b>Agent:</b> ${agentState.status}\n` +
+            `<b>Last check:</b> ${new Date(agentState.lastCheck).toISOString()}\n` +
+            `<b>Uptime:</b> ${Math.floor(process.uptime())}s`
           );
           return;
       }
