@@ -1,0 +1,154 @@
+version: "3.8"
+
+# OpenClaw + omo-startup-2.0 Integration
+# This compose file extends the main omo-startup-2.0 stack with OpenClaw
+
+services:
+  # OpenClaw Gateway Service
+  openclaw-gateway:
+    image: ${OPENCLAW_IMAGE:-ghcr.io/icholding/omo-startup-2.0/openclaw:latest}
+    container_name: omo-openclaw-gateway
+    restart: unless-stopped
+    
+    environment:
+      - NODE_ENV=production
+      - HOME=/home/openclaw
+      - TERM=xterm-256color
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN:-}
+      - OPENCLAW_GATEWAY_BIND=${OPENCLAW_GATEWAY_BIND:-lan}
+      - OPENCLAW_GATEWAY_PORT=18789
+      # AI Providers
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY:-}
+      # Claude Desktop Integration
+      - CLAUDE_AI_SESSION_KEY=${CLAUDE_AI_SESSION_KEY:-}
+      - CLAUDE_WEB_SESSION_KEY=${CLAUDE_WEB_SESSION_KEY:-}
+      # Channels
+      - WHATSAPP_ENABLED=${WHATSAPP_ENABLED:-true}
+      - TELEGRAM_ENABLED=${TELEGRAM_ENABLED:-false}
+      - DISCORD_ENABLED=${DISCORD_ENABLED:-false}
+      - SLACK_ENABLED=${SLACK_ENABLED:-false}
+      # Integration with omo-startup backend
+      - OMO_BACKEND_URL=http://backend:8080
+      - OMO_FRONTEND_URL=http://frontend:3000
+      
+    volumes:
+      - openclaw-config:/home/openclaw/.openclaw
+      - openclaw-workspace:/home/openclaw/.openclaw/workspace
+      - ./scripts:/app/scripts:ro
+      
+    ports:
+      - "${OPENCLAW_GATEWAY_PORT:-18789}:18789"
+      - "${OPENCLAW_BRIDGE_PORT:-18790}:18790"
+      - "${OPENCLAW_CANVAS_PORT:-18793}:18793"
+      
+    networks:
+      - omo-network
+      
+    healthcheck:
+      test: ["CMD", "node", "dist/index.js", "health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+      
+    command: >
+      node openclaw.mjs gateway 
+      --bind ${OPENCLAW_GATEWAY_BIND:-lan} 
+      --port 18789 
+      --allow-unconfigured
+    
+    depends_on:
+      - backend
+      - postgres
+
+  # OpenClaw CLI for management
+  openclaw-cli:
+    image: ${OPENCLAW_IMAGE:-ghcr.io/icholding/omo-startup-2.0/openclaw:latest}
+    container_name: omo-openclaw-cli
+    environment:
+      - HOME=/home/openclaw
+      - TERM=xterm-256color
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN:-}
+      - OPENCLAW_GATEWAY_URL=http://openclaw-gateway:18789
+    volumes:
+      - openclaw-config:/home/openclaw/.openclaw
+      - openclaw-workspace:/home/openclaw/.openclaw/workspace
+    networks:
+      - omo-network
+    profiles:
+      - cli
+    stdin_open: true
+    tty: true
+    entrypoint: ["node", "dist/index.js"]
+
+  # Vector Database for OpenClaw memory
+  openclaw-vectordb:
+    image: ankane/pgvector:latest
+    container_name: omo-openclaw-vectordb
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: openclaw
+      POSTGRES_PASSWORD: ${VECTORDB_PASSWORD:-openclaw}
+      POSTGRES_DB: openclaw_memory
+    volumes:
+      - openclaw-vectordb-data:/var/lib/postgresql/data
+    networks:
+      - omo-network
+    profiles:
+      - vectordb
+
+  # Redis for caching
+  openclaw-redis:
+    image: redis:7-alpine
+    container_name: omo-openclaw-redis
+    restart: unless-stopped
+    volumes:
+      - openclaw-redis-data:/data
+    networks:
+      - omo-network
+    profiles:
+      - redis
+
+  # Webhook bridge for omo-startup integration
+  openclaw-bridge:
+    image: ${OPENCLAW_IMAGE:-ghcr.io/icholding/omo-startup-2.0/openclaw:latest}
+    container_name: omo-openclaw-bridge
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - HOME=/home/openclaw
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN:-}
+      - OPENCLAW_GATEWAY_URL=http://openclaw-gateway:18789
+      - OMO_BACKEND_URL=http://backend:8080
+      - OMO_FRONTEND_URL=http://frontend:3000
+      - WEBHOOK_PORT=8081
+    ports:
+      - "8081:8081"
+    networks:
+      - omo-network
+    command: >
+      node dist/index.js bridge
+      --gateway http://openclaw-gateway:18789
+      --webhook-port 8081
+      --target-backend http://backend:8080
+    depends_on:
+      - openclaw-gateway
+      - backend
+    profiles:
+      - bridge
+
+volumes:
+  openclaw-config:
+    driver: local
+  openclaw-workspace:
+    driver: local
+  openclaw-vectordb-data:
+    driver: local
+  openclaw-redis-data:
+    driver: local
+
+networks:
+  omo-network:
+    external: true

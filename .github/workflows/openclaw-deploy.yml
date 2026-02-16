@@ -1,0 +1,187 @@
+name: Deploy OpenClaw + omo-startup-2.0
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      configure_channels:
+        description: 'Configure messaging channels'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/openclaw
+
+jobs:
+  deploy:
+    name: Deploy Stack
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup environment
+        run: |
+          echo "DEPLOY_ENV=${{ github.event.inputs.environment }}" >> $GITHUB_ENV
+          echo "COMPOSE_FILE=docker-compose.yml" >> $GITHUB_ENV
+      
+      - name: Create environment file
+        run: |
+          cat > .env << EOF
+          # OpenClaw Configuration
+          OPENCLAW_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          OPENCLAW_GATEWAY_TOKEN=${{ secrets.OPENCLAW_GATEWAY_TOKEN }}
+          OPENCLAW_GATEWAY_BIND=lan
+          OPENCLAW_GATEWAY_PORT=18789
+          OPENCLAW_BRIDGE_PORT=18790
+          OPENCLAW_CANVAS_PORT=18793
+          
+          # Frontend Configuration
+          FRONTEND_PORT=3000
+          BACKEND_PORT=8080
+          
+          # AI Provider Keys
+          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
+          
+          # Channel Configuration
+          WHATSAPP_ENABLED=true
+          TELEGRAM_ENABLED=${{ secrets.TELEGRAM_BOT_TOKEN != '' }}
+          TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
+          DISCORD_ENABLED=${{ secrets.DISCORD_BOT_TOKEN != '' }}
+          DISCORD_BOT_TOKEN=${{ secrets.DISCORD_BOT_TOKEN }}
+          SLACK_ENABLED=${{ secrets.SLACK_BOT_TOKEN != '' }}
+          SLACK_BOT_TOKEN=${{ secrets.SLACK_BOT_TOKEN }}
+          
+          # Database
+          POSTGRES_USER=omo
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB=omo_startup
+          
+          # Vector DB
+          VECTORDB_PASSWORD=${{ secrets.VECTORDB_PASSWORD }}
+          EOF
+      
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.0.3
+        if: ${{ secrets.DEPLOY_HOST != '' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd /opt/omo-startup-2.0
+            
+            # Pull latest changes
+            git pull origin main
+            
+            # Login to GitHub Container Registry
+            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+            # Pull latest images
+            docker-compose -f docker-compose.yml -f docker-compose.openclaw.yml pull
+            
+            # Stop existing services
+            docker-compose -f docker-compose.yml -f docker-compose.openclaw.yml down
+            
+            # Start services
+            docker-compose -f docker-compose.yml -f docker-compose.openclaw.yml up -d
+            
+            # Wait for services to start
+            sleep 30
+            
+            # Check health
+            curl -f http://localhost:18789/health || exit 1
+            curl -f http://localhost:3000 || exit 1
+            
+            echo "✅ Deployment successful"
+      
+      - name: Deploy to Render
+        if: ${{ secrets.RENDER_SERVICE_ID != '' }}
+        run: |
+          # Trigger Render deployment
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID }}/deploys
+      
+      - name: Update deployment status
+        uses: chrnorm/deployment-status@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          state: success
+          deployment-id: ${{ steps.deployment.outputs.deployment_id }}
+      
+      - name: Create deployment summary
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
+          echo "- **Channels Configured**: ${{ github.event.inputs.configure_channels }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Services" >> $GITHUB_STEP_SUMMARY
+          echo "- OpenClaw Gateway: http://localhost:18789" >> $GITHUB_STEP_SUMMARY
+          echo "- Frontend: http://localhost:3000" >> $GITHUB_STEP_SUMMARY
+          echo "- Backend: http://localhost:8080" >> $GITHUB_STEP_SUMMARY
+
+  configure-channels:
+    name: Configure Messaging Channels
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: github.event.inputs.configure_channels == 'true'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup OpenClaw CLI
+        run: |
+          # Install OpenClaw CLI locally
+          npm install -g openclaw
+          
+          # Set gateway URL
+          export OPENCLAW_GATEWAY_URL=http://localhost:18789
+          export OPENCLAW_GATEWAY_TOKEN=${{ secrets.OPENCLAW_GATEWAY_TOKEN }}
+      
+      - name: Configure WhatsApp
+        if: ${{ secrets.WHATSAPP_ENABLED == 'true' }}
+        run: |
+          echo "WhatsApp configuration requires QR code scan"
+          echo "Run: openclaw channels login"
+      
+      - name: Configure Telegram
+        if: ${{ secrets.TELEGRAM_BOT_TOKEN != '' }}
+        run: |
+          openclaw channels add \
+            --channel telegram \
+            --token ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      
+      - name: Configure Discord
+        if: ${{ secrets.DISCORD_BOT_TOKEN != '' }}
+        run: |
+          openclaw channels add \
+            --channel discord \
+            --token ${{ secrets.DISCORD_BOT_TOKEN }}
+      
+      - name: Configure Slack
+        if: ${{ secrets.SLACK_BOT_TOKEN != '' }}
+        run: |
+          openclaw channels add \
+            --channel slack \
+            --token ${{ secrets.SLACK_BOT_TOKEN }}
+      
+      - name: Verify channels
+        run: |
+          openclaw channels list
