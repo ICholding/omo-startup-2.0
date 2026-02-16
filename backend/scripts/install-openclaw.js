@@ -15,7 +15,7 @@ const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
 
 // Add OpenClaw dependency
 console.log('Adding OpenClaw dependency...');
-pkg.dependencies['openclaw'] = 'github:ICholding/openclaw';
+pkg.dependencies['openclaw'] = 'git+https://github.com/ICholding/openclaw.git';
 pkg.dependencies['axios'] = '^1.6.0';
 
 // Add scripts
