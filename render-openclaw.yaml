@@ -1,0 +1,63 @@
+# Render Blueprint for OpenClaw Integration
+# This file defines the OpenClaw service for Render deployment
+
+services:
+  - type: web
+    name: omo-openclaw-gateway
+    runtime: docker
+    repo: https://github.com/ICholding/openclaw
+    branch: main
+    dockerfilePath: ./Dockerfile.full
+    dockerContext: .
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOME
+        value: /home/openclaw
+      - key: OPENCLAW_GATEWAY_TOKEN
+        generateValue: true
+      - key: OPENCLAW_GATEWAY_BIND
+        value: 0.0.0.0
+      - key: OPENCLAW_GATEWAY_PORT
+        value: 18789
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: WHATSAPP_ENABLED
+        value: true
+      - key: TELEGRAM_ENABLED
+        value: false
+      - key: DISCORD_ENABLED
+        value: false
+      - key: SLACK_ENABLED
+        value: false
+      - key: OMO_BACKEND_URL
+        value: https://omo-startup-backend.onrender.com
+      - key: OMO_FRONTEND_URL
+        value: https://omo-startup.onrender.com
+    healthCheckPath: /health
+    autoDeploy: true
+    plan: standard
+    scaling:
+      minInstances: 1
+      maxInstances: 1
+    disk:
+      name: openclaw-data
+      mountPath: /home/openclaw/.openclaw
+      sizeGB: 1
+
+  # Environment group for shared secrets
+envVarGroups:
+  - name: openclaw-secrets
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: DISCORD_BOT_TOKEN
+        sync: false
+      - key: SLACK_BOT_TOKEN
+        sync: false
