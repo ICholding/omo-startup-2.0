@@ -42,6 +42,7 @@ COPY docker/moltbot-pentest/server.js ./
 COPY docker/moltbot-pentest/memory.js ./
 COPY docker/moltbot-pentest/github.js ./
 COPY docker/moltbot-pentest/executor.js ./
+COPY docker/moltbot-pentest/mcp-server.js ./
 
 # Create working directories with proper permissions
 RUN mkdir -p /tmp/openclaw-work /app/memory /app/backups && \
