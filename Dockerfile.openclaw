@@ -1,0 +1,45 @@
+# OpenClaw Agent Dockerfile - Production Ready
+FROM node:22-alpine
+
+WORKDIR /app
+
+# Install system dependencies for technical execution
+RUN apk add --no-cache \
+    curl \
+    wget \
+    python3 \
+    py3-pip \
+    jq \
+    git \
+    ca-certificates \
+    tzdata \
+    bash
+
+# Copy package files
+COPY docker/moltbot-pentest/package.json ./
+RUN npm install --omit=dev
+
+# Copy application
+COPY docker/moltbot-pentest/server.js ./
+
+# Create working directory for file operations
+RUN mkdir -p /tmp/openclaw-work && chmod 777 /tmp/openclaw-work
+
+# Create non-root user
+RUN addgroup -g 1001 -S openclaw && \
+    adduser -S openclaw -u 1001 -G openclaw
+
+# Change ownership
+RUN chown -R openclaw:openclaw /app /tmp/openclaw-work
+
+USER openclaw
+
+# Expose port
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:8080/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+
+# Start
+CMD ["node", "server.js"]
