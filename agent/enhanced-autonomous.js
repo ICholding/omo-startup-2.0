@@ -17,6 +17,7 @@ const util = require('util');
 const execAsync = util.promisify(exec);
 const sqlite3 = require('sqlite3').verbose();
 const axios = require('axios');
+const VisualFeedback = require('./visual-feedback');
 
 // Configuration
 const CONFIG = {
@@ -55,7 +56,7 @@ class EnhancedAutonomousAgent {
     await this.loadContext();
 
     this.initialized = true;
-    console.log(`[EAA] Agent ${this.sessionId} initialized with autonomous capabilities`);
+    console.log(VisualFeedback.success(`Agent ${this.sessionId} initialized with autonomous capabilities`));
   }
 
   async initMemory() {
@@ -124,7 +125,7 @@ class EnhancedAutonomousAgent {
         (err) => {
           if (err) reject(err);
           else {
-            console.log(`[EAA] Remembered: ${key}`);
+            console.log(VisualFeedback.memory('saved', key));
             resolve(true);
           }
         }
@@ -220,6 +221,8 @@ class EnhancedAutonomousAgent {
     const fileName = `exec_${executionId}.${language === 'javascript' ? 'js' : language}`;
     const filePath = path.join(CONFIG.workspacePath, fileName);
 
+    console.log(VisualFeedback.codeExecution(language, 'running'));
+
     try {
       fs.writeFileSync(filePath, code);
 
@@ -251,6 +254,8 @@ class EnhancedAutonomousAgent {
         timestamp: new Date().toISOString()
       }, 'execution');
 
+      console.log(VisualFeedback.success(`Code execution completed: ${executionId}`));
+
       return {
         success: true,
         executionId,
@@ -280,6 +285,7 @@ class EnhancedAutonomousAgent {
     }
 
     const fullCommand = `${command} ${args.join(' ')}`;
+    console.log(VisualFeedback.command(fullCommand, 'running'));
 
     try {
       const { stdout, stderr } = await execAsync(fullCommand, {
@@ -293,6 +299,8 @@ class EnhancedAutonomousAgent {
         stderr: stderr.substring(0, 1000),
         timestamp: new Date().toISOString()
       }, 'command');
+
+      console.log(VisualFeedback.success(`Command executed: ${fullCommand}`));
 
       return {
         success: true,
@@ -324,6 +332,8 @@ class EnhancedAutonomousAgent {
     await this.remember(`goal_${goalObj.id}`, goalObj, 'goal');
     await this.saveContext();
 
+    console.log(VisualFeedback.goal(goal, 'pending'));
+
     return goalObj;
   }
 
@@ -342,6 +352,7 @@ class EnhancedAutonomousAgent {
       goal.result = result;
       await this.remember(`goal_${goalId}`, goal, 'goal');
       await this.saveContext();
+      console.log(VisualFeedback.success(`Goal completed: ${goal.description}`));
     }
     return goal;
   }

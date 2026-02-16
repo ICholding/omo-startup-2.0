@@ -5,6 +5,7 @@
  */
 
 const EnhancedAutonomousAgent = require('./enhanced-autonomous');
+const VisualFeedback = require('./visual-feedback');
 
 class TelegramAutonomousBridge {
   constructor(telegramBot) {
@@ -32,6 +33,10 @@ class TelegramAutonomousBridge {
       });
     }
     const session = this.userSessions.get(userId);
+
+    // Show thinking indicator
+    const thinkingMsg = VisualFeedback.thinking('Processing your request');
+    console.log(`[TAB] ${thinkingMsg}`);
 
     // Parse intent from message
     const intent = this.parseIntent(message);
@@ -154,12 +159,12 @@ class TelegramAutonomousBridge {
     
     if (result.success) {
       return {
-        text: `✅ Code executed successfully!\n\n📤 Output:\n\`\`\`\n${result.output?.substring(0, 2000) || 'No output'}\n\`\`\``,
+        text: VisualFeedback.codeExecution(params.language, 'success', result.output),
         parse_mode: 'Markdown'
       };
     } else {
       return {
-        text: `❌ Execution failed:\n\n\`\`\`\n${result.error}\n\`\`\``,
+        text: VisualFeedback.codeExecution(params.language, 'error', result.error),
         parse_mode: 'Markdown'
       };
     }
@@ -170,12 +175,12 @@ class TelegramAutonomousBridge {
     
     if (result.success) {
       return {
-        text: `✅ Command executed!\n\n\`\`\`bash\n$ ${params.command}\n${result.output?.substring(0, 2000) || 'No output'}\n\`\`\``,
+        text: VisualFeedback.command(params.command, 'success', result.output),
         parse_mode: 'Markdown'
       };
     } else {
       return {
-        text: `❌ Command failed:\n\n${result.error}`,
+        text: VisualFeedback.command(params.command, 'error', result.error),
         parse_mode: 'Markdown'
       };
     }
@@ -186,7 +191,7 @@ class TelegramAutonomousBridge {
     
     if (result) {
       return {
-        text: `🧠 Remembered:\n\nKey: \`${params.key}\`\nValue: \`${params.value}\``,
+        text: VisualFeedback.memory('saved', params.key, params.value),
         parse_mode: 'Markdown'
       };
     }
@@ -197,12 +202,12 @@ class TelegramAutonomousBridge {
     
     if (value !== null) {
       return {
-        text: `🧠 Recalled:\n\nKey: \`${params.key}\`\nValue: \`\`\`json\n${JSON.stringify(value, null, 2)}\n\`\`\``,
+        text: VisualFeedback.memory('recalled', params.key, JSON.stringify(value)),
         parse_mode: 'Markdown'
       };
     } else {
       return {
-        text: `🤔 I don't remember anything about "${params.key}"`
+        text: VisualFeedback.info(`I don't remember anything about "${params.key}"`, 'thinking')
       };
     }
   }
@@ -218,7 +223,7 @@ class TelegramAutonomousBridge {
     const result = await this.agent.processAutonomousAction('set_goal', params);
     
     return {
-      text: `🎯 Goal set!\n\nID: \`${result.id}\`\nDescription: ${result.description}\nPriority: ${result.priority}/10\nStatus: ${result.status}`,
+      text: VisualFeedback.goal(result.description, 'in_progress', 0),
       parse_mode: 'Markdown'
     };
   }
@@ -233,29 +238,37 @@ class TelegramAutonomousBridge {
     // Analyze and decide actions
     const actions = await this.analyzeAndPlan(task);
     
-    let response = `🤖 **Autonomous Mode Activated**\n\n`;
-    response += `Goal ID: \`${goal.id}\`\n`;
-    response += `Task: ${task}\n\n`;
-    response += `📋 Planned Actions:\n`;
+    let response = VisualFeedback.autonomousTask(task, 'planning') + '\n\n';
+    response += `${VisualFeedback.get('arrow')} **Planned Actions:**\n`;
     
-    actions.forEach((action, i) => {
-      response += `${i + 1}. ${action.description}\n`;
-    });
+    const actionList = actions.map((action, i) => ({
+      name: action.description,
+      done: false,
+      inProgress: i === 0
+    }));
     
-    response += `\n⚡ Executing...`;
+    response += VisualFeedback.taskList(actionList);
     
-    // Execute actions
+    // Execute actions with progress updates
     const results = [];
-    for (const action of actions) {
-      const result = await this.executeAction(action);
+    for (let i = 0; i < actions.length; i++) {
+      // Update progress
+      actionList[i].inProgress = true;
+      
+      const result = await this.executeAction(actions[i]);
       results.push(result);
+      
+      // Mark as done
+      actionList[i].inProgress = false;
+      actionList[i].done = result.success;
     }
     
     // Complete goal
     await this.agent.completeGoal(goal.id, { actions, results });
     
-    response += `\n\n✅ Task completed!\n`;
-    response += `Results: ${results.filter(r => r.success).length}/${results.length} successful`;
+    response = VisualFeedback.autonomousTask(task, 'complete') + '\n\n';
+    response += VisualFeedback.taskList(actionList) + '\n\n';
+    response += VisualFeedback.success(`Results: ${results.filter(r => r.success).length}/${results.length} successful`);
     
     return { text: response, parse_mode: 'Markdown' };
   }
@@ -308,18 +321,18 @@ class TelegramAutonomousBridge {
   async handleStatus(userId) {
     const status = await this.agent.getStatus();
     
-    let response = `🤖 **Agent Status**\n\n`;
-    response += `Session: \`${status.sessionId}\`\n`;
-    response += `Initialized: ${status.initialized ? '✅' : '❌'}\n`;
-    response += `Self-Modification: ${status.selfModificationEnabled ? '✅ Enabled' : '❌ Disabled'}\n`;
-    response += `Auto-Execute: ${status.autoExecuteEnabled ? '✅ Enabled' : '❌ Disabled'}\n\n`;
-    response += `📊 Statistics:\n`;
-    response += `• Memories: ${status.stats.memories}\n`;
-    response += `• Actions: ${status.stats.actions}\n`;
-    response += `• Patterns: ${status.stats.patterns}\n`;
-    response += `• Goals: ${status.stats.goals}\n\n`;
-    response += `💾 Memory: ${status.memoryPath}\n`;
-    response += `📁 Workspace: ${status.workspacePath}`;
+    let response = `${VisualFeedback.get('robot')} **Agent Status**\n\n`;
+    response += `${VisualFeedback.get('info')} Session: \`${status.sessionId}\`\n`;
+    response += `${status.initialized ? VisualFeedback.get('success') : VisualFeedback.get('error')} Initialized\n`;
+    response += `${status.selfModificationEnabled ? VisualFeedback.get('success') : VisualFeedback.get('warning')} Self-Modification\n`;
+    response += `${status.autoExecuteEnabled ? VisualFeedback.get('success') : VisualFeedback.get('warning')} Auto-Execute\n\n`;
+    response += `${VisualFeedback.get('analyze')} **Statistics:**\n`;
+    response += `${VisualFeedback.get('memory')} Memories: ${status.stats.memories}\n`;
+    response += `${VisualFeedback.get('command')} Actions: ${status.stats.actions}\n`;
+    response += `${VisualFeedback.get('lightbulb')} Patterns: ${status.stats.patterns}\n`;
+    response += `${VisualFeedback.get('target')} Goals: ${status.stats.goals}\n\n`;
+    response += `${VisualFeedback.get('file')} Memory: ${status.memoryPath}\n`;
+    response += `${VisualFeedback.get('folder')} Workspace: ${status.workspacePath}`;
     
     return { text: response, parse_mode: 'Markdown' };
   }
