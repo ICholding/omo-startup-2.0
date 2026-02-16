@@ -139,6 +139,13 @@ const ChatInterface = () => {
   }, [isStreaming]);
 
   useEffect(() => {
+    if (!isStreaming) return;
+
+    const activeState = executionState || 'thinking';
+    setConversationState(activeState);
+  }, [executionState, isStreaming]);
+
+  useEffect(() => {
     if (!sessionId) return;
 
     try {
@@ -365,7 +372,10 @@ const ChatInterface = () => {
 
                     {showThinkingForCurrentRequest && isStreaming && executionState !== 'responding' && (
                       <div className="message-group">
-                        <ThinkingIndicator label={`${thinkingMessage} (${conversationState})`} />
+                        <ThinkingIndicator
+                          label={thinkingMessage}
+                          state={executionState}
+                        />
                       </div>
                     )}
 
