@@ -61,8 +61,8 @@ class VisualFeedback {
     database: '🗄️',
     backup: '💿',
     folder: '📁',
-    file: '📄'
-    
+    file: '📄',
+
     // AI/Agent
     robot: '🤖',
     brain: '🧠',
@@ -171,8 +171,14 @@ class VisualFeedback {
    * Create progress bar
    */
   static progressBar(current, total, length = 20) {
-    const percentage = Math.round((current / total) * 100);
-    const filled = Math.round((current / total) * length);
+    if (!total || total <= 0) {
+      const emptyBar = '░'.repeat(length);
+      return `${emptyBar} 0%`;
+    }
+
+    const boundedCurrent = Math.max(0, Math.min(current, total));
+    const percentage = Math.round((boundedCurrent / total) * 100);
+    const filled = Math.round((boundedCurrent / total) * length);
     const empty = length - filled;
     const bar = '█'.repeat(filled) + '░'.repeat(empty);
     return `${bar} ${percentage}%`;
