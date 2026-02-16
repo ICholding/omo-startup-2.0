@@ -173,87 +173,12 @@ app.post('/api/execute', async (req, res) => {
   }
 });
 
-// ========== API ROUTES - MUST BE BEFORE STATIC MIDDLEWARE ==========
-
-// Telegram routes (always available, no OpenClaw needed)
+// ========== TELEGRAM BOT ROUTES ==========
+// Telegram integration - works independently without OpenClaw
 const telegramRoutes = require('./src/routes/telegram');
 app.use('/api/telegram', telegramRoutes);
 
-// WhatsApp routes - only load if enabled
-let messagingService = null;
-
-if (process.env.ENABLE_MESSAGING === 'true') {
-  // Lazy load to prevent crash if OpenClaw is missing
-  try {
-    const MessagingService = require('./lib/messaging-service');
-    const whatsappRoutes = require('./src/routes/whatsapp');
-    app.use('/api/whatsapp', whatsappRoutes);
-    
-    (async () => {
-      try {
-        messagingService = new MessagingService(app);
-        app.set('messagingService', messagingService);
-        app.set('agentRuntime', runtime);
-        await messagingService.initialize();
-        console.log('✓ Messaging service (OpenClaw) initialized');
-      } catch (error) {
-        console.error('✗ Failed to initialize messaging service:', error.message);
-        console.log('ℹ Continuing without messaging service - Telegram bot still works');
-      }
-    })();
-  } catch (error) {
-    console.error('✗ OpenClaw module missing or broken:', error.message);
-    console.log('ℹ WhatsApp disabled - Telegram bot still works independently');
-  }
-} else {
-  console.log('ℹ Messaging service disabled (ENABLE_MESSAGING != true)');
-  console.log('✓ Telegram bot is active (uses direct Clawbot API, no OpenClaw needed)');
-}
-
-// Messaging API endpoints
-app.post('/api/messaging/send', async (req, res) => {
-  try {
-    if (!messagingService) {
-      return res.status(503).json({ 
-        error: 'Messaging service not initialized',
-        hint: 'Set ENABLE_MESSAGING=true and restart server'
-      });
-    }
-    
-    const { channel, to, message } = req.body;
-    
-    if (!channel || !to || !message) {
-      return res.status(400).json({ 
-        error: 'channel, to, and message are required' 
-      });
-    }
-    
-    const result = await messagingService.sendMessage(channel, to, message);
-    res.json({ status: 'ok', result });
-  } catch (error) {
-    console.error('[Messaging] Send error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/messaging/status', async (req, res) => {
-  try {
-    if (!messagingService) {
-      return res.json({ 
-        enabled: false,
-        initialized: false 
-      });
-    }
-    
-    const status = await messagingService.getStatus();
-    res.json({
-      enabled: true,
-      ...status
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+console.log('✓ Telegram bot routes loaded');
 
 // ========== STATIC FILES & FALLBACK ==========
 
