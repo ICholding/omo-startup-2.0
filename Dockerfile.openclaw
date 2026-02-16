@@ -5,7 +5,7 @@ FROM node:22-alpine
 
 WORKDIR /app
 
-# Install system dependencies for technical execution + database + B2
+# Install system dependencies for technical execution + database + B2 + build tools
 RUN apk add --no-cache \
     curl \
     wget \
@@ -19,30 +19,42 @@ RUN apk add --no-cache \
     bash \
     sqlite \
     sqlite-dev \
+    # Build dependencies for native Node modules (sqlite3)
+    python3-dev \
+    make \
+    g++ \
+    gcc \
+    libc-dev \
+    linux-headers \
     # B2 CLI tools
-    && pip3 install b2
+    && pip3 install b2 --break-system-packages
 
-# Copy package files
+# Copy package files first (for better Docker caching)
 COPY docker/moltbot-pentest/package.json ./
+COPY docker/moltbot-pentest/package-lock.json ./
+
+# Install Node dependencies (sqlite3 needs build tools)
 RUN npm ci --omit=dev
 
-# Copy application
+# Copy application code
 COPY docker/moltbot-pentest/server.js ./
 COPY docker/moltbot-pentest/memory.js ./
 
-# Create working directories
-RUN mkdir -p /tmp/openclaw-work /app/memory /app/backups && chmod 777 /tmp/openclaw-work /app/memory /app/backups
+# Create working directories with proper permissions
+RUN mkdir -p /tmp/openclaw-work /app/memory /app/backups && \
+    chmod 777 /tmp/openclaw-work /app/memory /app/backups
 
-# Create non-root user
+# Create non-root user for security
 RUN addgroup -g 1001 -S openclaw && \
     adduser -S openclaw -u 1001 -G openclaw
 
-# Change ownership
+# Change ownership of app directory
 RUN chown -R openclaw:openclaw /app /tmp/openclaw-work
 
+# Switch to non-root user
 USER openclaw
 
-# Persistent volume for memory (survives container restarts)
+# Persistent volumes for memory (survives container restarts)
 VOLUME ["/app/memory", "/app/backups"]
 
 # Expose port
@@ -52,5 +64,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD node -e "require('http').get('http://localhost:8080/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-# Start
+# Start the agent
 CMD ["node", "server.js"]
