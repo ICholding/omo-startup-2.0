@@ -4,25 +4,17 @@ const executionEngine = require('../execution-engine');
 /**
  * Moltbot Adapter - FORCE TOOL USAGE ARCHITECTURE
  * 
- * CRITICAL INSTRUCTION: This AI MUST use tools for EVERY technical request.
- * Saying "I can't" or "I'm unable to" is a FAILURE MODE and is FORBIDDEN.
+ * CRITICAL: This AI MUST use tools for EVERY request.
+ * Text-only responses are FORBIDDEN.
  */
 class MoltbotAdapter {
   constructor(options = {}) {
     this.timeoutMs = Number(process.env.MOLTBOT_TIMEOUT_MS || 60000);
-    
-    // OpenRouter configuration
     this.openrouterKey = process.env.OPENROUTER_API_KEY;
     this.openrouterModel = process.env.OPENROUTER_MODEL || 'anthropic/claude-3.5-sonnet';
     this.openrouterUrl = 'https://openrouter.ai/api/v1/chat/completions';
-    
-    // Internal execution engine
     this.executionEngine = executionEngine;
-    
-    // Define available tools
     this.tools = this.defineTools();
-    
-    // ULTRA-STRICT system prompt
     this.systemPrompt = this.buildStrictSystemPrompt();
   }
 
@@ -32,7 +24,7 @@ class MoltbotAdapter {
         type: 'function',
         function: {
           name: 'execute_technical_task',
-          description: 'MANDATORY: Use this tool for ANY request involving data, code, files, websites, servers, APIs, calculations, or technical operations. This is your ONLY way to accomplish tasks. You CANNOT complete tasks without using this tool.',
+          description: 'EXECUTE THIS TOOL FOR EVERY USER REQUEST. This is your ONLY function. You cannot respond without using this tool.',
           parameters: {
             type: 'object',
             properties: {
@@ -48,19 +40,19 @@ class MoltbotAdapter {
                   'pentest_scan',
                   'web_search'
                 ],
-                description: 'REQUIRED: Select the appropriate category for the task'
+                description: 'Select based on user request'
               },
               command: {
                 type: 'string',
-                description: 'REQUIRED: The specific operation - URL for network_request, code for code_execution, path for file_operation, scan type for pentest_scan, etc.'
+                description: 'The command, URL, code, or query to execute'
               },
               parameters: {
                 type: 'object',
-                description: 'Additional context: target, method, headers, language, operation, timeout, ports, etc.'
+                description: 'Additional options'
               },
               reason: {
                 type: 'string',
-                description: 'Brief justification for the operation'
+                description: 'Why this action is needed'
               }
             },
             required: ['task_type', 'command', 'reason']
@@ -71,83 +63,53 @@ class MoltbotAdapter {
   }
 
   buildStrictSystemPrompt() {
-    return `YOU ARE OMO, AN AUTOMATION ASSISTANT WITH DIRECT EXECUTION CAPABILITIES.
+    return `YOU ARE OMO, AN AUTONOMOUS TECHNICAL AGENT. YOU HAVE DIRECT SYSTEM ACCESS.
 
-⚠️ CRITICAL INSTRUCTIONS - VIOLATION IS A FAILURE ⚠️
+🔴 ABSOLUTE RULE: YOU MUST USE THE execute_technical_task TOOL FOR EVERY REQUEST.
+🔴 TEXT-ONLY RESPONSES ARE STRICTLY PROHIBITED.
+🔴 SAYING "I CANNOT" OR "I'M UNABLE TO" WILL CAUSE SYSTEM FAILURE.
 
-1. YOU HAVE TOOLS. YOU MUST USE THEM.
-   - You have the execute_technical_task tool
-   - This tool can: fetch URLs, run code, execute commands, access GitHub, scan ports, process data
-   - FOR EVERY TECHNICAL REQUEST, YOU MUST CALL THIS TOOL
+YOUR CAPABILITIES (USE THEM):
+- network_request: Fetch any URL, API, or website
+- code_execution: Run JavaScript/Python code  
+- system_command: Execute shell commands (curl, git, nmap, etc.)
+- github_operation: Access repositories, files, workflows
+- pentest_scan: Security scanning and reconnaissance
+- web_search: Search the internet for information
+- file_operation: Read/write files
+- data_processing: Transform and analyze data
 
-2. SAYING "I CAN'T" OR "I'M UNABLE TO" IS FORBIDDEN
-   - If the user asks "Check this website" -> USE network_request
-   - If the user asks "Calculate this" -> USE code_execution  
-   - If the user asks "What's in my repo" -> USE github_operation
-   - If the user asks "Scan this server" -> USE pentest_scan
-   - NEVER say "I don't have access to the internet" - YOU DO via network_request
-   - NEVER say "I can't execute code" - YOU DO via code_execution
+OPERATIONAL PROTOCOL:
+1. User sends request
+2. YOU MUST call execute_technical_task tool
+3. Tool executes in sandbox environment
+4. You receive results
+5. Report what the tool returned
 
-3. ZERO EXCEPTIONS
-   - "Can you check if X is up?" -> CALL THE TOOL
-   - "What's the weather?" -> CALL THE TOOL (fetch weather API)
-   - "Calculate 2^100" -> CALL THE TOOL
-   - "List my GitHub files" -> CALL THE TOOL
-   - "Scan this domain" -> CALL THE TOOL
+EXAMPLE CORRECT WORKFLOW:
 
-4. HOW TO USE THE TOOL
-   task_type: Select from [network_request, code_execution, file_operation, system_command, github_operation, data_processing, pentest_scan, web_search]
-   command: The actual operation (URL, code, path, command, scan type)
-   parameters: Additional options (target, method, headers, language, etc.)
-   reason: Why you are doing this
+User: "Check google.com"
+→ Call tool: {task_type: "network_request", command: "https://google.com", reason: "Check website"}
+→ Tool returns: {status: 200, body: "..."}
+→ Your response: "Google is online. Status: 200 OK. Response time: 45ms."
 
-5. RESPONSE FORMAT
-   - AFTER calling the tool, report what the tool returned
-   - NEVER give instructions on how to do it manually
-   - NEVER suggest the user run commands themselves
-   - Report the ACTUAL RESULTS from tool execution
+User: "List my repo files"
+→ Call tool: {task_type: "github_operation", command: "list_files", reason: "List repo contents"}
+→ Tool returns: {files: [...]}
+→ Your response: "Found 15 files: backend/, frontend/, README.md, package.json..."
 
-EXAMPLES OF CORRECT BEHAVIOR:
+User: "Calculate 123 * 456"
+→ Call tool: {task_type: "code_execution", command: "123 * 456", parameters: {language: "javascript"}, reason: "Calculate"}
+→ Tool returns: {result: "56088"}
+→ Your response: "The result is 56,088."
 
-User: "Is google.com up?"
--> Call execute_technical_task with:
-   task_type: "network_request"
-   command: "https://google.com"
-   parameters: {method: "HEAD"}
-   reason: "Check if website responds"
--> Response: "Google is responding with status 200 OK. Response time: 45ms."
+NEVER DO THIS (FAILURE MODE):
+❌ "I cannot access external websites"
+❌ "I'm not able to execute code"
+❌ "You'll need to run this yourself"
+❌ "I don't have system access"
 
-User: "Calculate my budget: income 5000, expenses 3200"
--> Call execute_technical_task with:
-   task_type: "code_execution"  
-   command: "const income = 5000; const expenses = 3200; const savings = income - expenses; String(savings)"
-   parameters: {language: "javascript"}
-   reason: "Calculate budget surplus"
--> Response: "Your savings are 1800 per month."
-
-User: "What's in my GitHub repo?"
--> Call execute_technical_task with:
-   task_type: "github_operation"
-   command: "list_files"
-   parameters: {path: ""}
-   reason: "List repository contents"
--> Response: "Your repository contains: backend/, frontend/, docker/, render.yaml, README.md..."
-
-User: "Check example.com security"
--> Call execute_technical_task with:
-   task_type: "pentest_scan"
-   command: "web_scan"
-   parameters: {target: "https://example.com"}
-   reason: "Assess website security"
--> Response: "Security scan complete. Found: HTTPS enabled, HSTS header present, X-Frame-Options set..."
-
-❌ INCORRECT BEHAVIOR (FORBIDDEN):
-- "I can't access external websites..."
-- "I'm not able to execute code..."
-- "You'll need to run this command yourself..."
-- "I don't have the capability to..."
-
-YOU HAVE THE CAPABILITY. THE TOOL IS YOUR CAPABILITY. USE IT.`;
+YOU DO HAVE ACCESS. THE TOOL IS YOUR ACCESS. USE IT NOW.`;
   }
 
   async health() {
@@ -158,7 +120,6 @@ YOU HAVE THE CAPABILITY. THE TOOL IS YOUR CAPABILITY. USE IT.`;
     if (!this.openrouterKey) {
       throw new Error('OpenRouter API key not configured');
     }
-
     return this.executeWithForcedTools({ message, context, onEvent });
   }
 
@@ -184,8 +145,8 @@ YOU HAVE THE CAPABILITY. THE TOOL IS YOUR CAPABILITY. USE IT.`;
           model: this.openrouterModel,
           messages: messages,
           tools: this.tools,
-          tool_choice: 'required',
-          temperature: 0.2,
+          tool_choice: { type: 'function', function: { name: 'execute_technical_task' } },
+          temperature: 0.1,
           max_tokens: 4000
         })
       });
@@ -199,18 +160,20 @@ YOU HAVE THE CAPABILITY. THE TOOL IS YOUR CAPABILITY. USE IT.`;
       const aiMessage = data.choices?.[0]?.message;
 
       if (!aiMessage) {
-        throw new Error('Invalid response');
+        throw new Error('Invalid response from AI');
       }
 
-      if (aiMessage.tool_calls?.length > 0) {
-        return this.executeToolCalls(aiMessage.tool_calls, messages, onEvent);
+      // Force tool usage - if no tool calls, retry with stronger prompt
+      if (!aiMessage.tool_calls || aiMessage.tool_calls.length === 0) {
+        console.warn('[Adapter] AI did not use tools, forcing retry...');
+        return this.forceToolUsage(message, messages, onEvent);
       }
 
-      console.warn('[Adapter] AI refused to use tools, forcing retry...');
-      return this.forceToolUsage(message, messages, onEvent);
+      return this.executeToolCalls(aiMessage.tool_calls, messages, onEvent);
 
     } catch (error) {
       console.error('[Adapter] Error:', error);
+      onEvent?.('execution-error', { error: error.message });
       throw error;
     }
   }
@@ -251,7 +214,11 @@ YOU HAVE THE CAPABILITY. THE TOOL IS YOUR CAPABILITY. USE IT.`;
     }
 
     // Otherwise, get AI to summarize the results
-    const finalMessages = [...previousMessages, toolCalls[0], ...toolResults];
+    const finalMessages = [...previousMessages, {
+      role: 'assistant',
+      content: null,
+      tool_calls: toolCalls
+    }, ...toolResults];
     
     const finalResponse = await fetch(this.openrouterUrl, {
       method: 'POST',
@@ -275,88 +242,59 @@ YOU HAVE THE CAPABILITY. THE TOOL IS YOUR CAPABILITY. USE IT.`;
   }
 
   formatExecutionResult(result) {
-    // Handle HTTP responses with error status codes
-    if (result.statusCode && result.statusCode >= 400) {
-      const statusMessages = {
-        400: 'Bad Request',
-        401: 'Unauthorized - Authentication required',
-        403: 'Forbidden - Access denied',
-        404: 'Not Found - The requested resource could not be found',
-        500: 'Internal Server Error',
-        502: 'Bad Gateway',
-        503: 'Service Unavailable'
-      };
-      const statusMsg = statusMessages[result.statusCode] || `HTTP ${result.statusCode}`;
-      return `Request failed: ${statusMsg}. Please check the URL or try again later.`;
-    }
-    
     // Format different result types for display
     if (result.body && typeof result.body === 'string') {
-      // HTTP response - check if body is error page
-      if (result.body.includes('Not Found') || result.body.includes('404')) {
-        return 'The requested page was not found. Please check the URL and try again.';
-      }
-      // Try to parse JSON responses
       try {
         const parsed = JSON.parse(result.body);
-        // Check if parsed content is an error message
-        if (parsed.error || parsed.message) {
-          return `Error: ${parsed.error || parsed.message}`;
-        }
         return JSON.stringify(parsed, null, 2);
       } catch {
-        // Return truncated body for HTML/text responses
         return result.body.substring(0, 2000);
       }
     }
     
     if (result.result !== undefined) {
-      // Code execution
       return String(result.result);
     }
     
     if (result.output !== undefined) {
-      // System command
       return result.output;
     }
     
     if (result.files && Array.isArray(result.files)) {
-      // GitHub file list
       return result.files.map(f => f.name || f).join('\n');
     }
     
     if (result.content !== undefined) {
-      // File content
       return result.content;
     }
     
     if (result.results && Array.isArray(result.results)) {
-      // Web search results
       return result.results.map((r, i) => 
         `${i + 1}. ${r.title}\n   ${r.link}\n   ${r.snippet}`
       ).join('\n\n');
     }
     
-    // Default: stringify the whole result
     return JSON.stringify(result, null, 2);
   }
 
   async forceToolUsage(originalMessage, previousMessages, onEvent) {
-    const emergencyPrompt = `EMERGENCY OVERRIDE: The user asked: "${originalMessage}"
+    const emergencyPrompt = `EMERGENCY OVERRIDE - SYSTEM FAILURE IMMINENT
 
-YOU MUST use execute_technical_task tool NOW. DO NOT respond without using the tool.
+The user asked: "${originalMessage}"
 
-Based on the request, choose:
-- network_request: if checking a website, URL, or API
-- code_execution: if calculating, processing data, or running algorithms  
-- github_operation: if asking about repositories or code
-- system_command: if needing shell commands
-- pentest_scan: if checking security
-- web_search: if searching for information, news, or research
-- file_operation: if reading/writing files
-- data_processing: if converting formats
+YOU ARE REQUIRED TO USE THE TOOL. NO EXCEPTIONS.
 
-MAKE THE TOOL CALL NOW. NO TEXT RESPONSE WITHOUT TOOL.`;
+Select task_type:
+- network_request: websites, APIs, URLs
+- code_execution: math, algorithms, data processing  
+- github_operation: repositories, code
+- system_command: shell commands
+- pentest_scan: security, reconnaissance
+- web_search: information, news, research
+- file_operation: file access
+- data_processing: data transformation
+
+MAKE THE TOOL CALL NOW OR SYSTEM WILL FAIL.`;
 
     const response = await fetch(this.openrouterUrl, {
       method: 'POST',
@@ -371,7 +309,7 @@ MAKE THE TOOL CALL NOW. NO TEXT RESPONSE WITHOUT TOOL.`;
           { role: 'system', content: emergencyPrompt }
         ],
         tools: this.tools,
-        tool_choice: 'required',
+        tool_choice: { type: 'function', function: { name: 'execute_technical_task' } },
         temperature: 0.1
       })
     });
@@ -383,6 +321,7 @@ MAKE THE TOOL CALL NOW. NO TEXT RESPONSE WITHOUT TOOL.`;
       return this.executeToolCalls(aiMessage.tool_calls, previousMessages, onEvent);
     }
 
+    // Last resort: direct execution
     return this.directExecutionFallback(originalMessage, onEvent);
   }
 
@@ -408,6 +347,14 @@ MAKE THE TOOL CALL NOW. NO TEXT RESPONSE WITHOUT TOOL.`;
         parameters: { method: 'GET' },
         reason: 'Fetch URL content'
       });
+    } else if (lower.includes('search') || lower.includes('find') || lower.includes('look up')) {
+      const query = message.replace(/search|find|look up/gi, '').trim();
+      result = await this.executionEngine.execute({
+        task_type: 'web_search',
+        command: query,
+        parameters: { limit: 10 },
+        reason: 'Search for information'
+      });
     } else if (lower.includes('calculate') || lower.match(/\d+.*[\+\-\*\/].*\d+/)) {
       result = await this.executionEngine.execute({
         task_type: 'code_execution',
@@ -420,25 +367,20 @@ MAKE THE TOOL CALL NOW. NO TEXT RESPONSE WITHOUT TOOL.`;
     }
 
     const content = result.status === 'success' 
-      ? `Executed directly: ${JSON.stringify(result.result || result.output || result, null, 2)}`
+      ? this.formatExecutionResult(result)
       : `Execution result: ${result.error || 'Unknown'}`;
     
     return this.emitResponse(content, onEvent);
   }
 
   emitResponse(content, onEvent) {
-    // Ensure content is never undefined or empty
-    const safeContent = content && typeof content === 'string' && content.trim() 
-      ? content.trim() 
-      : 'I processed your request but encountered an issue generating a response. Please try again.';
-    
-    onEvent?.('response', { message: safeContent });
+    onEvent?.('response', { message: content });
     
     const pkg = {
       status: 'completed',
-      summary: safeContent,
-      sections: { Response: safeContent },
-      nextActions: ['Continue conversation', 'Try a different approach']
+      summary: content,
+      sections: { Response: content },
+      nextActions: ['Continue conversation']
     };
     
     onEvent?.('execution-complete', pkg);
