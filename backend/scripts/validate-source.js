@@ -5,21 +5,50 @@ const { execSync } = require('child_process');
 
 const projectRoot = path.resolve(__dirname, '..', '..');
 
-const filesToCheck = [
-  'backend/server.js',
-  'backend/lib/runtime.js',
-  'backend/lib/adapters/moltbot-adapter.js',
-  'backend/lib/adapters/custom-agent-adapter.js',
-  'backend/lib/agent-contract.js'
+const sourceRoots = ['backend'];
+const ignoredPathFragments = [
+  `${path.sep}node_modules${path.sep}`,
+  `${path.sep}.git${path.sep}`
 ];
 
 const diffMarkerPattern = /^(diff --git |@@ |\+\+\+ |--- )/m;
 const conflictPattern = /^(<<<<<<<|=======|>>>>>>>)/m;
 
+function collectSourceFiles(startDir) {
+  const entries = fs.readdirSync(startDir, { withFileTypes: true });
+  const files = [];
+
+  for (const entry of entries) {
+    const fullPath = path.join(startDir, entry.name);
+
+    if (ignoredPathFragments.some((fragment) => fullPath.includes(fragment))) {
+      continue;
+    }
+
+    if (entry.isDirectory()) {
+      files.push(...collectSourceFiles(fullPath));
+      continue;
+    }
+
+    if (!entry.isFile() || !fullPath.endsWith('.js')) {
+      continue;
+    }
+
+    files.push(fullPath);
+  }
+
+  return files;
+}
+
+const filesToCheck = sourceRoots
+  .map((root) => path.join(projectRoot, root))
+  .filter((rootPath) => fs.existsSync(rootPath))
+  .flatMap((rootPath) => collectSourceFiles(rootPath));
+
 let hasError = false;
 
-for (const relFile of filesToCheck) {
-  const fullPath = path.join(projectRoot, relFile);
+for (const fullPath of filesToCheck) {
+  const relFile = path.relative(projectRoot, fullPath);
 
   try {
     const source = fs.readFileSync(fullPath, 'utf8');
