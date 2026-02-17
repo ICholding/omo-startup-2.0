@@ -1,8 +1,21 @@
-class FallbackManager {
+const EventEmitter = require('events');
+
+class FallbackManager extends EventEmitter {
   constructor(options = {}) {
+    super();
     this.failureThreshold = options.failureThreshold || 3;
     this.cooldownMs = options.cooldownMs || 60_000;
+    this.healthCheckIntervalMs = options.healthCheckIntervalMs || 30_000;
     this.state = new Map();
+    this.health = new Map();
+
+    this.healthTimer = setInterval(() => {
+      this.emit('health:tick', this.getHealthSnapshot());
+    }, this.healthCheckIntervalMs);
+
+    if (typeof this.healthTimer.unref === 'function') {
+      this.healthTimer.unref();
+    }
   }
 
   getServiceState(serviceName) {
@@ -16,6 +29,18 @@ class FallbackManager {
     return this.state.get(serviceName);
   }
 
+  getHealthSnapshot() {
+    const snapshot = {};
+    for (const [serviceName, serviceState] of this.state.entries()) {
+      snapshot[serviceName] = {
+        failures: serviceState.failures,
+        circuitOpen: Boolean(serviceState.openedAt),
+        openedAt: serviceState.openedAt,
+      };
+    }
+    return snapshot;
+  }
+
   isCircuitOpen(serviceName) {
     const entry = this.getServiceState(serviceName);
     if (!entry.openedAt) {
@@ -26,6 +51,7 @@ class FallbackManager {
     if (elapsed >= this.cooldownMs) {
       entry.openedAt = null;
       entry.failures = 0;
+      this.emit('circuit:closed', { serviceName, reason: 'cooldown_elapsed' });
       return false;
     }
 
@@ -36,14 +62,22 @@ class FallbackManager {
     const entry = this.getServiceState(serviceName);
     entry.failures = 0;
     entry.openedAt = null;
+    this.emit('service:success', { serviceName });
   }
 
-  markFailure(serviceName) {
+  markFailure(serviceName, error) {
     const entry = this.getServiceState(serviceName);
     entry.failures += 1;
 
+    this.emit('service:failure', {
+      serviceName,
+      failures: entry.failures,
+      error: error?.message || String(error || 'unknown_error'),
+    });
+
     if (entry.failures >= this.failureThreshold) {
       entry.openedAt = Date.now();
+      this.emit('circuit:opened', { serviceName, failures: entry.failures });
     }
   }
 
@@ -69,7 +103,7 @@ class FallbackManager {
           result,
         };
       } catch (error) {
-        this.markFailure(serviceName);
+        this.markFailure(serviceName, error);
         if (this.isCircuitOpen(serviceName)) {
           return {
             ok: false,
@@ -88,6 +122,16 @@ class FallbackManager {
       provider: null,
       error: `all_providers_failed:${serviceName}`,
     };
+  }
+
+  async executeWithHandlers(serviceName, handlers = {}) {
+    const normalizedHandlers = Object.entries(handlers).map(([name, fn]) => {
+      const wrapped = async () => fn();
+      Object.defineProperty(wrapped, 'name', { value: name, configurable: true });
+      return wrapped;
+    });
+
+    return this.executeWithFallback(serviceName, normalizedHandlers);
   }
 
   getDefaultChains() {
