@@ -5,18 +5,29 @@ const { execSync } = require('child_process');
 
 const projectRoot = path.resolve(__dirname, '..', '..');
 
-const filesToCheck = [
-  'backend/server.js',
-  'backend/lib/runtime.js',
-  'backend/lib/adapters/moltbot-adapter.js',
-  'backend/lib/adapters/custom-agent-adapter.js',
-  'backend/lib/agent-contract.js'
-];
+function getTrackedBackendJsFiles() {
+  const output = execSync('git ls-files "backend/**/*.js" "backend/*.js"', {
+    cwd: projectRoot,
+    encoding: 'utf8'
+  });
+
+  return output
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((file) => !file.includes('/node_modules/'));
+}
 
 const diffMarkerPattern = /^(diff --git |@@ |\+\+\+ |--- )/m;
 const conflictPattern = /^(<<<<<<<|=======|>>>>>>>)/m;
 
 let hasError = false;
+const filesToCheck = getTrackedBackendJsFiles();
+
+if (filesToCheck.length === 0) {
+  console.error('✗ No backend JavaScript files found to validate.');
+  process.exit(1);
+}
 
 for (const relFile of filesToCheck) {
   const fullPath = path.join(projectRoot, relFile);
