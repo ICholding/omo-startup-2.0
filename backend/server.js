@@ -82,20 +82,26 @@ app.post('/api/chat/message', async (req, res) => {
   }
 });
 
-app.get('/api/chat/stream', async (req, res) => {
-  const { message, sessionId, context } = req.query;
-
-  if (!message || !sessionId) {
-    return res.status(400).json({ error: 'message and sessionId are required' });
+const parseContext = (context, allowJsonString = false) => {
+  if (Array.isArray(context)) {
+    return context;
   }
 
-  let parsedContext = [];
-  if (context) {
+  if (allowJsonString && typeof context === 'string' && context.trim()) {
     try {
-      parsedContext = JSON.parse(context);
+      const parsed = JSON.parse(context);
+      return Array.isArray(parsed) ? parsed : [];
     } catch {
-      parsedContext = [];
+      return [];
     }
+  }
+
+  return [];
+};
+
+const streamChatResponse = async (req, res, { message, sessionId, context }) => {
+  if (!message || !sessionId) {
+    return res.status(400).json({ error: 'message and sessionId are required' });
   }
 
   res.setHeader('Content-Type', 'text/event-stream');
@@ -111,7 +117,7 @@ app.get('/api/chat/stream', async (req, res) => {
     await runtime.execute({
       message,
       sessionId,
-      context: parsedContext,
+      context,
       onEvent: writeEvent
     });
     writeEvent('done', { ok: true });
@@ -127,6 +133,26 @@ app.get('/api/chat/stream', async (req, res) => {
   }
 
   res.end();
+};
+
+app.get('/api/chat/stream', async (req, res) => {
+  const { message, sessionId, context } = req.query;
+  const parsedContext = parseContext(context, true);
+  return streamChatResponse(req, res, {
+    message,
+    sessionId,
+    context: parsedContext
+  });
+});
+
+app.post('/api/chat/stream', async (req, res) => {
+  const { message, sessionId, context } = req.body || {};
+  const parsedContext = parseContext(context);
+  return streamChatResponse(req, res, {
+    message,
+    sessionId,
+    context: parsedContext
+  });
 });
 
 app.get('/api/config/brand', (req, res) => {
