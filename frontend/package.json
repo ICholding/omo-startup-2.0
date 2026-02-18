@@ -10,9 +10,7 @@
   },
   "dependencies": {
     "@assistant-ui/react": "^0.12.10",
-    "@assistant-ui/store": "^0.8.3",
     "@assistant-ui/react-ui": "^0.2.1",
-    "@assistant-ui/store": "^0.12.10",
     "@radix-ui/react-slot": "1.2.3",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
