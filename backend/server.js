@@ -129,6 +129,46 @@ app.get('/api/chat/stream', async (req, res) => {
   res.end();
 });
 
+app.post('/api/chat/stream', async (req, res) => {
+  const { message, sessionId, context } = req.body || {};
+
+  if (!message || !sessionId) {
+    return res.status(400).json({ error: 'message and sessionId are required' });
+  }
+
+  const parsedContext = Array.isArray(context) ? context : [];
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  const writeEvent = (event, data) => {
+    res.write(`event: ${event}\n`);
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
+  try {
+    await runtime.execute({
+      message,
+      sessionId,
+      context: parsedContext,
+      onEvent: writeEvent
+    });
+    writeEvent('done', { ok: true });
+  } catch (error) {
+    console.error('[API /api/chat/stream POST] Moltbot execution failed', {
+      provider: process.env.AGENT_PROVIDER || 'moltbot',
+      openclawGatewayUrl: process.env.OPENCLAW_GATEWAY_URL || null,
+      moltbotUrl: process.env.MOLTBOT_URL || null,
+      message: error.message,
+      stack: error.stack
+    });
+    writeEvent('execution-error', { error: error.message });
+  }
+
+  res.end();
+});
+
 app.get('/api/config/brand', (req, res) => {
   res.json({
     activeAgentId: process.env.AGENT_PROVIDER || 'moltbot',
