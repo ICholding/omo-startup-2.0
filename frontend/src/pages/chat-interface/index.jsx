@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { ExternalThread } from '@assistant-ui/react';
-import { AuiProvider } from '@assistant-ui/store';
 import ChatHeader from '../../components/ui/ChatHeader';
 import MessageInput from '../../components/ui/MessageInput';
 import OmoAiSidebar from './components/OmoAiSidebar';
@@ -312,8 +311,7 @@ const ChatInterface = () => {
               isConnected={isConnected}
             />
 
-            <AuiProvider>
-              <main className="flex-1 overflow-hidden flex flex-col pt-14">
+            <main className="flex-1 overflow-hidden flex flex-col pt-14">
                 <div className="flex-1 overflow-y-auto px-2 sm:px-4 pb-28 sm:pb-32">
                   <ExternalThread
                     messages={threadMessages}
@@ -355,8 +353,7 @@ const ChatInterface = () => {
                       ))}
                   </motion.div>
                 )}
-              </main>
-            </AuiProvider>
+            </main>
 
             {!isSidebarActive && (
               <MessageInput
